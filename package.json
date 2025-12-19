@@ -1,0 +1,42 @@
+{
+  "name": "garmin-connect",
+  "version": "0.1.0",
+  "description": "TypeScript library for interacting with Garmin Connect",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "prepare": "husky install",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "garmin",
+    "garmin-connect",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@vitest/ui": "^1.1.0",
+    "husky": "^9.0.11",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "peerDependencies": {},
+  "dependencies": {}
+}
+
+
