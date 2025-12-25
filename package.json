@@ -1,5 +1,5 @@
 {
-  "name": "garmin-connect",
+  "name": "garmin-connect-client",
   "version": "0.1.0",
   "description": "TypeScript library for interacting with Garmin Connect",
   "main": "dist/index.js",
@@ -23,6 +23,7 @@
   "keywords": [
     "garmin",
     "garmin-connect",
+    "garmin-connect-client",
     "typescript"
   ],
   "author": "",

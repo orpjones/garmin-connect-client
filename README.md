@@ -5,7 +5,7 @@ TypeScript library for interacting with Garmin Connect.
 ## Installation
 
 ```bash
-npm install garmin-connect
+npm install garmin-connect-client
 ```
 
 ## Development
@@ -39,7 +39,7 @@ npm run clean
 ### Basic Usage
 
 ```typescript
-import { GarminConnectClientImpl, type GarminConnectClient } from 'garmin-connect';
+import { GarminConnectClientImpl, type GarminConnectClient } from 'garmin-connect-client';
 
 const client: GarminConnectClient = new GarminConnectClientImpl();
 const activities = await client.getActivities();
