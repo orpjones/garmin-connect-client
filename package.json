@@ -30,6 +30,10 @@
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/orpjones/garmin-connect-client.git"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

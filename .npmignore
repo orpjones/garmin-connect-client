@@ -1,0 +1,57 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Test files
+*.test.ts
+*.spec.ts
+**/__tests__/
+**/test/
+coverage/
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Config files
+.eslintrc.json
+.prettierrc
+tsconfig.json
+vitest.config.ts
+.husky/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# HAR files (sensitive data)
+*.har
+
+# Build artifacts (only dist/ should be published)
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional - you may want to include README.md)
+# README.md
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+

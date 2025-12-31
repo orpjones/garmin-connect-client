@@ -1,6 +1,6 @@
 # Garmin Connect
 
-TypeScript library for interacting with Garmin Connect.
+TypeScript library for reading data from Garmin Connect.
 
 ## Installation
 
@@ -39,10 +39,33 @@ npm run clean
 ### Basic Usage
 
 ```typescript
-import { GarminConnectClientImpl, type GarminConnectClient } from 'garmin-connect-client';
+import { create, type GarminConnectClient } from 'garmin-connect-client';
 
-const client: GarminConnectClient = new GarminConnectClientImpl();
+// Create an authenticated client
+const client: GarminConnectClient = await create({
+  username: 'your-username',
+  password: 'your-password',
+});
+
+// Get activities
 const activities = await client.getActivities();
+```
+
+### With MFA
+
+If your account uses Multi-Factor Authentication (MFA), provide an `mfaCodeProvider`:
+
+```typescript
+import { create } from 'garmin-connect-client';
+
+const client = await create({
+  username: 'your-username',
+  password: 'your-password',
+  mfaCodeProvider: async () => {
+    // Return the MFA code
+    return '123456';
+  },
+});
 ```
 
 ## Testing
@@ -53,8 +76,6 @@ npm run test:run  # Run tests once
 npm run test:ui   # Open Vitest UI
 npm run test:coverage  # Generate coverage report
 ```
-
-The interface pattern makes testing easy - you can create mock implementations that satisfy the `GarminConnectClient` interface without needing the real API.
 
 ## License
 
