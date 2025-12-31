@@ -56,6 +56,17 @@ export class CsrfTokenError extends AuthenticationError {
 }
 
 /**
+ * Thrown when a request is made without authentication or session has expired
+ */
+export class NotAuthenticatedError extends AuthenticationError {
+  constructor(message: string = 'Client is not authenticated. Call create() first.') {
+    super(message);
+    this.name = 'NotAuthenticatedError';
+    Object.setPrototypeOf(this, NotAuthenticatedError.prototype);
+  }
+}
+
+/**
  * Base class for MFA-related errors
  */
 export class MfaError extends GarminConnectError {
@@ -140,17 +151,6 @@ export class ClientError extends GarminConnectError {
     super(message);
     this.name = 'ClientError';
     Object.setPrototypeOf(this, ClientError.prototype);
-  }
-}
-
-/**
- * Thrown when client method is called before authentication
- */
-export class NotAuthenticatedError extends ClientError {
-  constructor(message: string = 'Client is not authenticated. Call create() first.') {
-    super(message);
-    this.name = 'NotAuthenticatedError';
-    Object.setPrototypeOf(this, NotAuthenticatedError.prototype);
   }
 }
 

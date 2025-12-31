@@ -24,6 +24,7 @@ import {
   MfaCodeError,
   MfaCodeInvalidError,
   MfaRequiredError,
+  NotAuthenticatedError,
   OAuthTokenError,
 } from './errors';
 import type { MfaCodeProvider, OAuth1AppIdentity, OAuth1Token, OAuth2Token } from './types';
@@ -120,13 +121,29 @@ export class HttpClient {
 
           if (status === 401 && originalRequest && !originalRequest._retry) {
             if (!this.oauth2Token || !this.oauth1Token) {
-              throw new HttpError(`HTTP request failed: ${error.message}`, status, statusText, data);
+              throw new NotAuthenticatedError(`Request failed: ${error.message}`);
             }
 
             originalRequest._retry = true;
             const newToken = await this.refreshToken();
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             return this.client(originalRequest);
+          }
+
+          // Map 403 Forbidden to NotAuthenticatedError (Garmin uses 403 for unauthenticated requests)
+          if (status === 403) {
+            throw new NotAuthenticatedError(`Request failed: ${error.message}`);
+          }
+
+          // Map 400 Bad Request with authorization error message to NotAuthenticatedError
+          if (
+            status === 400 &&
+            data &&
+            typeof data === 'object' &&
+            'errorMessage' in data &&
+            data.errorMessage === 'Authorization header is missing or incomplete.'
+          ) {
+            throw new NotAuthenticatedError(`Request failed: ${error.message}`);
           }
 
           throw new HttpError(`HTTP request failed: ${error.message}`, status, statusText, data);

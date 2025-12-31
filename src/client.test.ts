@@ -16,7 +16,8 @@ import path from 'node:path';
 import { config } from 'dotenv';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { InvalidCredentialsError, MfaCodeInvalidError, MfaRequiredError } from './errors';
+import { GarminConnectClientImpl } from './client';
+import { InvalidCredentialsError, MfaCodeInvalidError, MfaRequiredError, NotAuthenticatedError } from './errors';
 import type { MfaCodeProvider } from './types';
 
 import { create } from './index';
@@ -319,5 +320,34 @@ describe('GarminConnectClient', () => {
       // Default perPage is 20
       expect(golfActivities.rowsPerPage).toBe(20);
     }, 30_000);
+  });
+
+  describe('Unauthenticated client', () => {
+    it('should throw NotAuthenticatedError when calling getActivities without authentication', async () => {
+      const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated({
+        username: 'test@example.com',
+        password: 'password',
+      });
+
+      await expect(unauthenticatedClient.getActivities()).rejects.toThrow(NotAuthenticatedError);
+    });
+
+    it('should throw NotAuthenticatedError when calling getActivity without authentication', async () => {
+      const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated({
+        username: 'test@example.com',
+        password: 'password',
+      });
+
+      await expect(unauthenticatedClient.getActivity('123')).rejects.toThrow(NotAuthenticatedError);
+    });
+
+    it('should throw NotAuthenticatedError when calling getGolfActivities without authentication', async () => {
+      const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated({
+        username: 'test@example.com',
+        password: 'password',
+      });
+
+      await expect(unauthenticatedClient.getGolfActivities()).rejects.toThrow(NotAuthenticatedError);
+    });
   });
 });
