@@ -173,12 +173,7 @@ export class HttpError extends GarminConnectError {
   public readonly statusText?: string;
   public readonly responseData?: unknown;
 
-  constructor(
-    message: string,
-    statusCode?: number,
-    statusText?: string,
-    responseData?: unknown
-  ) {
+  constructor(message: string, statusCode?: number, statusText?: string, responseData?: unknown) {
     super(message);
     this.name = 'HttpError';
     this.statusCode = statusCode;
@@ -187,4 +182,3 @@ export class HttpError extends GarminConnectError {
     Object.setPrototypeOf(this, HttpError.prototype);
   }
 }
-

@@ -85,12 +85,21 @@ export {
 
 // Export all custom exceptions
 export {
-  AuthenticationError, ClientError, CsrfTokenError, GarminConnectError, HttpError, InvalidCredentialsError, MfaCodeError,
-  MfaCodeInvalidError, MfaError,
-  MfaRequiredError, NotAuthenticatedError,
-  NotImplementedError, OAuthError,
+  AuthenticationError,
+  ClientError,
+  CsrfTokenError,
+  GarminConnectError,
+  HttpError,
+  InvalidCredentialsError,
+  MfaCodeError,
+  MfaCodeInvalidError,
+  MfaError,
+  MfaRequiredError,
+  NotAuthenticatedError,
+  NotImplementedError,
+  OAuthError,
   OAuthIdentityError,
-  OAuthTokenError
+  OAuthTokenError,
 } from './errors';
 
 // Creates a new Garmin Connect client and performs login

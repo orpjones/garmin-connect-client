@@ -28,31 +28,40 @@ import type { MfaCodeProvider, OAuth1AppIdentity, OAuth1Token, OAuth2Token } fro
 import { GarminUrls } from './urls';
 
 // Zod schemas for API responses
-const LoginResponseSchema = z.object({
-  serviceURL: z.string().nullable().optional(),
-  serviceTicketId: z.string().nullable().optional(),
-  responseStatus: z.object({
-    type: z.string(),
-    message: z.string().optional(),
-    httpStatus: z.string().optional(),
-  }).optional(),
-  responseReason: z.string().nullable().optional(),
-  customerMfaInfo: z.object({
-    mfaLastMethodUsed: z.string().optional(),
-    email: z.string().optional(),
-    phoneNumber: z.string().nullable().optional(),
-    defaultMfaMethod: z.string().nullable().optional(),
-    mfaUISetting: z.object({
-      allowPhoneOption: z.boolean().optional(),
-      allowAddEmailAddress: z.boolean().optional(),
-      chooseDifferentWayShown: z.boolean().optional(),
-    }).optional(),
-  }).nullable().optional(),
-  consentTypeList: z.array(z.unknown()).nullable().optional(),
-  captchaAlreadyPassed: z.boolean().optional(),
-  samlResponse: z.string().nullable().optional(),
-  authType: z.string().nullable().optional(),
-}).passthrough();
+const LoginResponseSchema = z
+  .object({
+    serviceURL: z.string().nullable().optional(),
+    serviceTicketId: z.string().nullable().optional(),
+    responseStatus: z
+      .object({
+        type: z.string(),
+        message: z.string().optional(),
+        httpStatus: z.string().optional(),
+      })
+      .optional(),
+    responseReason: z.string().nullable().optional(),
+    customerMfaInfo: z
+      .object({
+        mfaLastMethodUsed: z.string().optional(),
+        email: z.string().optional(),
+        phoneNumber: z.string().nullable().optional(),
+        defaultMfaMethod: z.string().nullable().optional(),
+        mfaUISetting: z
+          .object({
+            allowPhoneOption: z.boolean().optional(),
+            allowAddEmailAddress: z.boolean().optional(),
+            chooseDifferentWayShown: z.boolean().optional(),
+          })
+          .optional(),
+      })
+      .nullable()
+      .optional(),
+    consentTypeList: z.array(z.unknown()).nullable().optional(),
+    captchaAlreadyPassed: z.boolean().optional(),
+    samlResponse: z.string().nullable().optional(),
+    authType: z.string().nullable().optional(),
+  })
+  .passthrough();
 
 type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
@@ -60,7 +69,8 @@ type LoginResponse = z.infer<typeof LoginResponseSchema>;
 const USER_AGENT_CONNECTMOBILE = 'com.garmin.android.apps.connectmobile';
 
 // User agent string for iOS mobile browser
-const USER_AGENT_MOBILE_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+const USER_AGENT_MOBILE_IOS =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
 
 // OAuth 1.0 consumer credentials
 // These are public values used for authentication and can be safely included in client applications
@@ -105,15 +115,10 @@ export class HttpClient {
           const status = error.response?.status;
           const statusText = error.response?.statusText;
           const data = error.response?.data;
-          
+
           if (status === 401 && originalRequest && !originalRequest._retry) {
             if (!this.oauth2Token || !this.oauth1Token) {
-              throw new HttpError(
-                `HTTP request failed: ${error.message}`,
-                status,
-                statusText,
-                data
-              );
+              throw new HttpError(`HTTP request failed: ${error.message}`, status, statusText, data);
             }
 
             originalRequest._retry = true;
@@ -125,15 +130,10 @@ export class HttpClient {
               throw refreshError;
             }
           }
-          
-          throw new HttpError(
-            `HTTP request failed: ${error.message}`,
-            status,
-            statusText,
-            data
-          );
+
+          throw new HttpError(`HTTP request failed: ${error.message}`, status, statusText, data);
         }
-        
+
         throw error;
       }
     );
@@ -187,7 +187,7 @@ export class HttpClient {
   private async getLoginTicket(username: string, password: string): Promise<string> {
     // First, visit the sign-in page to establish a session and get cookies
     const signInUrl = this.urls.SIGN_IN_PAGE();
-    
+
     await this.get<string>(signInUrl, {
       headers: {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -198,7 +198,7 @@ export class HttpClient {
     });
 
     const loginUrl = this.urls.LOGIN_API();
-    
+
     const loginBody = {
       username,
       password,
@@ -242,11 +242,11 @@ export class HttpClient {
     if (loginResponse.serviceTicketId) {
       return loginResponse.serviceTicketId;
     }
-    
+
     // No ticket found - check if MFA is required
     let requiresMfa = false;
     let mfaMethod = 'email';
-    
+
     // Check for MFA_REQUIRED in responseStatus.type
     if (loginResponse.responseStatus?.type === 'MFA_REQUIRED') {
       requiresMfa = true;
@@ -257,21 +257,21 @@ export class HttpClient {
       if (!this.mfaCodeProvider) {
         throw new MfaRequiredError();
       }
-      
+
       const mfaCode = await this.mfaCodeProvider.getMfaCode();
       if (!mfaCode || mfaCode.trim().length === 0) {
         throw new MfaCodeError();
       }
-      
+
       const mfaResult = await this.verifyMfaCode(mfaCode.trim(), mfaMethod);
-      
+
       if (mfaResult.serviceTicketId) {
         return mfaResult.serviceTicketId;
       }
-      
+
       throw new MfaCodeInvalidError('MFA code submitted but ticket not found - please check your MFA code');
     }
-    
+
     throw new InvalidCredentialsError('login failed (Ticket not found or MFA), please check username and password');
   }
 
@@ -280,7 +280,7 @@ export class HttpClient {
   // Throws MfaCodeInvalidError if the MFA code is invalid or expired
   private async verifyMfaCode(mfaCode: string, mfaMethod: string = 'email'): Promise<LoginResponse> {
     const mfaUrl = this.urls.MFA_VERIFY_API();
-    
+
     const mfaBody = {
       mfaMethod,
       mfaVerificationCode: mfaCode,
@@ -302,14 +302,14 @@ export class HttpClient {
         },
       });
       const result = LoginResponseSchema.parse(response);
-      
+
       // Check for MFA_CODE_INVALID in response status (can occur even with 200 OK)
       if (result.responseStatus?.type === 'MFA_CODE_INVALID') {
         throw new MfaCodeInvalidError(
           result.responseStatus.message || 'Invalid MFA code. Please check your code and try again.'
         );
       }
-      
+
       return result;
     } catch (error) {
       if (error instanceof HttpError) {

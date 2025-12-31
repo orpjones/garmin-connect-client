@@ -14,11 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import {
-  InvalidCredentialsError,
-  MfaCodeInvalidError,
-  MfaRequiredError,
-} from './errors';
+import { InvalidCredentialsError, MfaCodeInvalidError, MfaRequiredError } from './errors';
 import { create } from './index';
 import type { MfaCodeProvider } from './types';
 import { ActivityTypeKey, EventTypeKey, PrivacyTypeKey } from './types';
@@ -118,7 +114,7 @@ describe('GarminConnectClient', () => {
     if (result.error && fs.existsSync(envPath)) {
       console.warn(`Warning: Failed to load .env file: ${result.error.message}`);
     }
-    
+
     // Load environment variables
     GARMIN_USERNAME = process.env.GARMIN_USERNAME;
     GARMIN_PASSWORD = process.env.GARMIN_PASSWORD;
@@ -135,7 +131,7 @@ describe('GarminConnectClient', () => {
       }
     });
 
-    it('should create and authenticate a client instance', async () => { 
+    it('should create and authenticate a client instance', async () => {
       const client = await create({
         username: GARMIN_USERNAME!,
         password: GARMIN_PASSWORD!,
@@ -175,7 +171,7 @@ describe('GarminConnectClient', () => {
         // The MFA provider will be called dynamically during authentication
         // when MFA is detected. The user will be prompted at that point.
         const mfaProvider = new ConsoleMfaProvider();
-        
+
         const client = await create({
           username: GARMIN_MFA_USERNAME!,
           password: GARMIN_MFA_PASSWORD!,
@@ -211,7 +207,7 @@ describe('GarminConnectClient', () => {
 
     it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
       const invalidMfaProvider = new InvalidMfaProvider();
-      
+
       await expect(
         create({
           username: GARMIN_MFA_USERNAME!,
@@ -261,7 +257,7 @@ describe('GarminConnectClient', () => {
         const secondPage = await client.getActivities(5, 5);
         expect(secondPage).toBeDefined();
         expect(Array.isArray(secondPage)).toBe(true);
-        
+
         // Activities should be different
         if (secondPage.length > 0 && firstPage.length > 0) {
           expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
@@ -271,7 +267,7 @@ describe('GarminConnectClient', () => {
 
     it('should use default pagination values when not specified', async () => {
       const activities = await client.getActivities();
-      
+
       expect(activities).toBeDefined();
       expect(Array.isArray(activities)).toBe(true);
       // Default limit is 20
