@@ -8,16 +8,18 @@
 //    GARMIN_MFA_PASSWORD=mfa-password
 //
 // NOTE: The MFA test requires console input and is automatically skipped when CI=true
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import path from 'node:path';
+
 import { config } from 'dotenv';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 import { beforeAll, describe, expect, it } from 'vitest';
+
 import { InvalidCredentialsError, MfaCodeInvalidError, MfaRequiredError } from './errors';
-import { create } from './index';
 import type { MfaCodeProvider } from './types';
-import { ActivityTypeKey, EventTypeKey, PrivacyTypeKey } from './types';
+
+import { create } from './index';
 
 // Environment variables - loaded in beforeAll hook
 let GARMIN_USERNAME: string | undefined;
@@ -31,30 +33,30 @@ let shouldRunInteractiveMFATests: boolean;
 // User edits the file, saves it, and we read the code
 function readMfaCodeFromConsole(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const tempFile = path.join(os.tmpdir(), `garmin-mfa-${Date.now()}-${Math.random().toString(36).substring(7)}.txt`);
-    fs.writeFileSync(tempFile, 'Enter your MFA code below, then save and close this file:\n\n', 'utf8');
+    const temporaryFile = path.join(os.tmpdir(), `garmin-mfa-${Date.now()}-${Math.random().toString(36).slice(7)}.txt`);
+    fs.writeFileSync(temporaryFile, 'Enter your MFA code below, then save and close this file:\n\n', 'utf8');
 
-    const initialMtime = fs.statSync(tempFile).mtimeMs;
-    const maxWaitTime = 600000; // 10 minutes
+    const initialMtime = fs.statSync(temporaryFile).mtimeMs;
+    const maxWaitTime = 600_000; // 10 minutes
     const startTime = Date.now();
 
     // Platform-specific editor commands
     const editorCommand =
       process.platform === 'darwin'
-        ? { command: 'open', args: ['-t', tempFile] }
+        ? { command: 'open', args: ['-t', temporaryFile] }
         : process.platform === 'win32'
-          ? { command: 'cmd', args: ['/c', 'start', 'notepad', tempFile] }
-          : { command: 'xdg-open', args: [tempFile] };
+          ? { command: 'cmd', args: ['/c', 'start', 'notepad', temporaryFile] }
+          : { command: 'xdg-open', args: [temporaryFile] };
 
     spawn(editorCommand.command, editorCommand.args, {
       detached: true,
       stdio: 'ignore',
-    }).on('error', (err: Error) => reject(new Error(`Failed to open editor: ${err.message}`)));
+    }).on('error', (error: Error) => reject(new Error(`Failed to open editor: ${error.message}`)));
 
     // Cleanup helper
     const cleanup = () => {
       try {
-        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+        if (fs.existsSync(temporaryFile)) fs.unlinkSync(temporaryFile);
       } catch {
         // Ignore cleanup errors
       }
@@ -63,16 +65,16 @@ function readMfaCodeFromConsole(): Promise<string> {
     // Poll for file changes
     const interval = setInterval(() => {
       try {
-        if (!fs.existsSync(tempFile)) {
+        if (!fs.existsSync(temporaryFile)) {
           clearInterval(interval);
           cleanup();
           reject(new Error('MFA input file was deleted'));
           return;
         }
 
-        const stats = fs.statSync(tempFile);
-        const content = fs.readFileSync(tempFile, 'utf8');
-        const code = content.replace(/Enter your MFA code.*\n\n?/i, '').trim();
+        const stats = fs.statSync(temporaryFile);
+        const content = fs.readFileSync(temporaryFile, 'utf8');
+        const code = content.replace(/enter your mfa code.*\n\n?/i, '').trim();
 
         if (stats.mtimeMs > initialMtime && code) {
           clearInterval(interval);
@@ -83,10 +85,10 @@ function readMfaCodeFromConsole(): Promise<string> {
           cleanup();
           reject(new Error('Timeout waiting for MFA code input'));
         }
-      } catch (err) {
+      } catch (error) {
         clearInterval(interval);
         cleanup();
-        reject(new Error(`Error reading MFA code file: ${err instanceof Error ? err.message : String(err)}`));
+        reject(new Error(`Error reading MFA code file: ${error instanceof Error ? error.message : String(error)}`));
       }
     }, 500);
   });
@@ -110,9 +112,9 @@ describe('GarminConnectClient', () => {
   beforeAll(() => {
     // Load .env file from project root
     // Use process.cwd() which should be the project root when running tests
-    const envPath = path.resolve(process.cwd(), '.env');
-    const result = config({ path: envPath });
-    if (result.error && fs.existsSync(envPath)) {
+    const environmentPath = path.resolve(process.cwd(), '.env');
+    const result = config({ path: environmentPath });
+    if (result.error && fs.existsSync(environmentPath)) {
       console.warn(`Warning: Failed to load .env file: ${result.error.message}`);
     }
 
@@ -135,11 +137,11 @@ describe('GarminConnectClient', () => {
     });
 
     it('should create and authenticate a client instance', async () => {
-      const client = await create({
+      await create({
         username: GARMIN_USERNAME!,
         password: GARMIN_PASSWORD!,
       });
-    }, 30000);
+    }, 30_000);
 
     it('should throw an error for invalid password', async () => {
       await expect(
@@ -148,7 +150,7 @@ describe('GarminConnectClient', () => {
           password: 'invalid-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
-    }, 30000);
+    }, 30_000);
 
     it('should throw an error for invalid username', async () => {
       await expect(
@@ -157,7 +159,7 @@ describe('GarminConnectClient', () => {
           password: 'some-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
-    }, 30000);
+    }, 30_000);
   });
 
   describe('create and authenticate (MFA Login)', () => {
@@ -182,9 +184,8 @@ describe('GarminConnectClient', () => {
         });
 
         expect(client).toBeDefined();
-        // TODO: Implement this test
       },
-      600000 // 10 minute timeout to allow for MFA input
+      600_000 // 10 minute timeout to allow for MFA input
     );
 
     it('should throw an error for invalid password with MFA account', async () => {
@@ -194,19 +195,23 @@ describe('GarminConnectClient', () => {
           password: 'invalid-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
-    }, 30000);
+    }, 30_000);
 
-    it('should throw an error when MFA is required but no provider is configured', async () => {
-      // This test assumes the MFA account requires MFA
-      // If it doesn't require MFA, this test will fail with a different error
-      await expect(
-        create({
-          username: GARMIN_MFA_USERNAME!,
-          password: GARMIN_MFA_PASSWORD!,
-          // No mfaCodeProvider provided
-        })
-      ).rejects.toThrow(MfaRequiredError);
-    }, 30000);
+    it.skipIf(!shouldRunInteractiveMFATests)(
+      'should throw an error when MFA is required but no provider is configured',
+      async () => {
+        // This test assumes the MFA account requires MFA
+        // If it doesn't require MFA, this test will fail with a different error
+        await expect(
+          create({
+            username: GARMIN_MFA_USERNAME!,
+            password: GARMIN_MFA_PASSWORD!,
+            // No mfaCodeProvider provided
+          })
+        ).rejects.toThrow(MfaRequiredError);
+      },
+      30_000
+    );
 
     it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
       const invalidMfaProvider = new InvalidMfaProvider();
@@ -218,7 +223,7 @@ describe('GarminConnectClient', () => {
           mfaCodeProvider: invalidMfaProvider,
         })
       ).rejects.toThrow(MfaCodeInvalidError);
-    }, 30000);
+    }, 30_000);
   });
 
   describe.skipIf(!shouldRunInteractiveMFATests)('getActivities', () => {
@@ -238,7 +243,7 @@ describe('GarminConnectClient', () => {
         password: GARMIN_MFA_PASSWORD!,
         mfaCodeProvider: mfaProvider,
       });
-    }, 600000); // 10 minute timeout to allow for MFA input
+    }, 600_000); // 10 minute timeout to allow for MFA input
 
     it('should retrieve a list of activities', async () => {
       const activities = await client.getActivities();
@@ -246,7 +251,7 @@ describe('GarminConnectClient', () => {
       expect(activities).toBeDefined();
       expect(Array.isArray(activities)).toBe(true);
       expect(activities.length).toBeGreaterThan(0);
-    }, 30000);
+    }, 30_000);
 
     it('should support pagination with start and limit parameters', async () => {
       // Get first page
@@ -266,7 +271,7 @@ describe('GarminConnectClient', () => {
           expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
         }
       }
-    }, 30000);
+    }, 30_000);
 
     it('should use default pagination values when not specified', async () => {
       const activities = await client.getActivities();
@@ -275,13 +280,13 @@ describe('GarminConnectClient', () => {
       expect(Array.isArray(activities)).toBe(true);
       // Default limit is 20
       expect(activities.length).toBeLessThanOrEqual(20);
-    }, 30000);
+    }, 30_000);
 
     it('should retrieve golf activities', async () => {
       const golfActivities = await client.getGolfActivities();
 
       expect(golfActivities).toBeDefined();
-    }, 30000);
+    }, 30_000);
 
     it('should support pagination with page and perPage parameters for golf activities', async () => {
       // Get first page
@@ -300,7 +305,7 @@ describe('GarminConnectClient', () => {
           expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
         }
       }
-    }, 30000);
+    }, 30_000);
 
     it('should use default pagination values when not specified for golf activities', async () => {
       const golfActivities = await client.getGolfActivities();
@@ -308,6 +313,6 @@ describe('GarminConnectClient', () => {
       expect(golfActivities.pageNumber).toBe(1);
       // Default perPage is 20
       expect(golfActivities.rowsPerPage).toBe(20);
-    }, 30000);
+    }, 30_000);
   });
 });

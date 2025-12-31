@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { NotAuthenticatedError } from './errors';
 import { HttpClient } from './http-client';
 import type { Activity, GarminConnectClient, GarminConnectClientConfig, GolfActivitiesResponse } from './types';

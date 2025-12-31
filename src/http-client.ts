@@ -10,12 +10,14 @@
 // 1. Submit credentials and handle MFA if required
 // 2. Exchange login ticket for OAuth 1.0 token
 // 3. Exchange OAuth 1.0 token for OAuth 2.0 bearer token
+import crypto from 'node:crypto';
+
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
-import { CookieJar } from 'tough-cookie';
-import crypto from 'crypto';
 import OAuth from 'oauth-1.0a';
+import { CookieJar } from 'tough-cookie';
 import { z } from 'zod';
+
 import {
   HttpError,
   InvalidCredentialsError,
@@ -122,13 +124,9 @@ export class HttpClient {
             }
 
             originalRequest._retry = true;
-            try {
-              const newToken = await this.refreshToken();
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-              return this.client(originalRequest);
-            } catch (refreshError) {
-              throw refreshError;
-            }
+            const newToken = await this.refreshToken();
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return this.client(originalRequest);
           }
 
           throw new HttpError(`HTTP request failed: ${error.message}`, status, statusText, data);
@@ -340,7 +338,7 @@ export class HttpClient {
   // Uses OAuth 1.0a signing to authenticate the request
   // Returns OAuth 1.0 token containing oauth_token and oauth_token_secret
   private async getOauth1Token(ticket: string): Promise<OAuth1Token> {
-    const oauthParams = {
+    const oauthParameters = {
       ticket,
       'login-url': this.urls.MOBILE_SERVICE,
       'accepts-mfa-tokens': true,
@@ -352,12 +350,12 @@ export class HttpClient {
     const requestData = {
       url: baseUrl,
       method: 'GET',
-      data: oauthParams,
+      data: oauthParameters,
     };
     const authData = oauth.authorize(requestData);
     // Convert Authorization object to plain object for URL building
-    const authParams = { ...authData } as Record<string, unknown>;
-    const url = this.urls.OAUTH_PREAUTHORIZED(oauthParams, authParams);
+    const authParameters = { ...authData } as Record<string, unknown>;
+    const url = this.urls.OAUTH_PREAUTHORIZED(oauthParameters, authParameters);
 
     const response = await this.get<string>(url, {
       headers: {
@@ -365,10 +363,10 @@ export class HttpClient {
       },
     });
     // Parse the query string response (format: "oauth_token=xxx&oauth_token_secret=yyy")
-    const responseParams = new URLSearchParams(response);
+    const responseParameters = new URLSearchParams(response);
     const token: OAuth1Token = {
-      oauth_token: responseParams.get('oauth_token') || '',
-      oauth_token_secret: responseParams.get('oauth_token_secret') || '',
+      oauth_token: responseParameters.get('oauth_token') || '',
+      oauth_token_secret: responseParameters.get('oauth_token_secret') || '',
     };
     return token;
   }
@@ -399,14 +397,13 @@ export class HttpClient {
     const requestData = {
       url: baseUrl,
       method: 'POST',
-      data: null,
     };
 
     const step5AuthData = oauth.authorize(requestData, token);
     // Convert Authorization object to plain object for URL building
-    const oauthParams = { ...step5AuthData } as Record<string, unknown>;
-    const url = this.urls.OAUTH_EXCHANGE(oauthParams);
-    const response = await this.post<OAuth2Token>(url, null, {
+    const oauthParameters = { ...step5AuthData } as Record<string, unknown>;
+    const url = this.urls.OAUTH_EXCHANGE(oauthParameters);
+    const response = await this.post<OAuth2Token>(url, undefined, {
       headers: {
         'User-Agent': USER_AGENT_CONNECTMOBILE,
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -492,7 +489,7 @@ export class HttpClient {
   // The Bearer token is automatically added via the request interceptor.
   // Throws HttpError if the request fails
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.post<T>(url, null, {
+    const response = await this.client.post<T>(url, undefined, {
       ...config,
       headers: {
         ...config?.headers,
@@ -506,8 +503,8 @@ export class HttpClient {
   // Always throws an HttpError
   handleError(response: AxiosResponse): void {
     const { status, statusText, data } = response;
-    const msg = `ERROR: (${status}), ${statusText}, ${JSON.stringify(data)}`;
-    throw new HttpError(msg, status, statusText, data);
+    const message = `ERROR: (${status}), ${statusText}, ${JSON.stringify(data)}`;
+    throw new HttpError(message, status, statusText, data);
   }
 
   // Checks if the client is authenticated (has valid OAuth tokens)

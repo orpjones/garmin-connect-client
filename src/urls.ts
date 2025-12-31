@@ -1,4 +1,4 @@
-import qs from 'qs';
+import { stringify } from 'qs';
 
 // Garmin Connect URL constants and construction methods
 export class GarminUrls {
@@ -18,31 +18,31 @@ export class GarminUrls {
 
   // Constructs the sign-in page URL with query parameters
   SIGN_IN_PAGE(clientId: string = this.CLIENT_ID_MOBILE): string {
-    const params = {
+    const parameters = {
       clientId,
       service: this.MOBILE_SERVICE,
     };
-    return `https://sso.garmin.com/mobile/sso/en-US/sign-in?${qs.stringify(params)}`;
+    return `https://sso.garmin.com/mobile/sso/en-US/sign-in?${stringify(parameters)}`;
   }
 
   // Constructs the login API URL with query parameters
   LOGIN_API(clientId: string = this.CLIENT_ID_MOBILE, locale: string = 'en-US'): string {
-    const params = {
+    const parameters = {
       clientId,
       locale,
       service: this.MOBILE_SERVICE,
     };
-    return `${this.MOBILE_API_LOGIN}?${qs.stringify(params)}`;
+    return `${this.MOBILE_API_LOGIN}?${stringify(parameters)}`;
   }
 
   // Constructs the MFA verify API URL with query parameters
   MFA_VERIFY_API(clientId: string = this.CLIENT_ID_MOBILE, locale: string = 'en-US'): string {
-    const params = {
+    const parameters = {
       clientId,
       locale,
       service: this.MOBILE_SERVICE,
     };
-    return `${this.MOBILE_API_MFA_VERIFY}?${qs.stringify(params)}`;
+    return `${this.MOBILE_API_MFA_VERIFY}?${stringify(parameters)}`;
   }
 
   // Constructs the referer URL for sign-in page requests
@@ -64,10 +64,10 @@ export class GarminUrls {
   // Constructs the OAuth preauthorized URL with query parameters
   // @param params - Base parameters (ticket, login-url, accepts-mfa-tokens)
   // @param oauthParams - OAuth signature parameters to merge in
-  OAUTH_PREAUTHORIZED(params: Record<string, unknown>, oauthParams?: Record<string, unknown>): string {
+  OAUTH_PREAUTHORIZED(parameters: Record<string, unknown>, oauthParameters?: Record<string, unknown>): string {
     const baseUrl = this.OAUTH_PREAUTHORIZED_BASE();
-    const mergedParams = oauthParams ? { ...params, ...oauthParams } : params;
-    return `${baseUrl}?${qs.stringify(mergedParams)}`;
+    const mergedParameters = oauthParameters ? { ...parameters, ...oauthParameters } : parameters;
+    return `${baseUrl}?${stringify(mergedParameters)}`;
   }
 
   // Returns the base URL for OAuth exchange endpoint (without query params)
@@ -78,9 +78,9 @@ export class GarminUrls {
 
   // Constructs the OAuth exchange URL with query parameters
   // @param oauthParams - OAuth signature parameters
-  OAUTH_EXCHANGE(oauthParams: Record<string, unknown>): string {
+  OAUTH_EXCHANGE(oauthParameters: Record<string, unknown>): string {
     const baseUrl = this.OAUTH_EXCHANGE_BASE();
-    return `${baseUrl}?${qs.stringify(oauthParams)}`;
+    return `${baseUrl}?${stringify(oauthParameters)}`;
   }
 
   // Activity API methods
