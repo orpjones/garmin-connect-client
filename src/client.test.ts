@@ -164,8 +164,8 @@ describe('GarminConnectClient', () => {
 
   describe('create and authenticate (MFA Login)', () => {
     beforeAll(() => {
-      // Fail fast if credentials are missing
-      if (!GARMIN_MFA_USERNAME || !GARMIN_MFA_PASSWORD) {
+      // Only require credentials for interactive tests
+      if (shouldRunInteractiveMFATests && (!GARMIN_MFA_USERNAME || !GARMIN_MFA_PASSWORD)) {
         throw new Error('GARMIN_MFA_USERNAME and GARMIN_MFA_PASSWORD must be set in .env file');
       }
     });
@@ -189,9 +189,10 @@ describe('GarminConnectClient', () => {
     );
 
     it('should throw an error for invalid password with MFA account', async () => {
+      // This test doesn't require real credentials - it tests error handling
       await expect(
         create({
-          username: GARMIN_MFA_USERNAME!,
+          username: 'test@example.com',
           password: 'invalid-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
@@ -213,17 +214,21 @@ describe('GarminConnectClient', () => {
       30_000
     );
 
-    it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
-      const invalidMfaProvider = new InvalidMfaProvider();
+    it.skipIf(!shouldRunInteractiveMFATests)(
+      'should throw MfaCodeInvalidError when invalid MFA code is provided',
+      async () => {
+        const invalidMfaProvider = new InvalidMfaProvider();
 
-      await expect(
-        create({
-          username: GARMIN_MFA_USERNAME!,
-          password: GARMIN_MFA_PASSWORD!,
-          mfaCodeProvider: invalidMfaProvider,
-        })
-      ).rejects.toThrow(MfaCodeInvalidError);
-    }, 30_000);
+        await expect(
+          create({
+            username: GARMIN_MFA_USERNAME!,
+            password: GARMIN_MFA_PASSWORD!,
+            mfaCodeProvider: invalidMfaProvider,
+          })
+        ).rejects.toThrow(MfaCodeInvalidError);
+      },
+      30_000
+    );
   });
 
   describe.skipIf(!shouldRunInteractiveMFATests)('getActivities', () => {
