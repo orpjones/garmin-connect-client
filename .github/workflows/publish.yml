@@ -5,12 +5,13 @@ on:
     tags:
       - 'v*.*.*'  # Trigger on version tags like v1.0.0
 
+permissions:
+  contents: read
+  id-token: write  # Required for npm provenance
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write  # Required for npm provenance
     
     steps:
       - name: Checkout code
@@ -19,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Verify version matches tag
@@ -46,7 +47,7 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
