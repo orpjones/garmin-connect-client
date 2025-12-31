@@ -1,10 +1,101 @@
-/**
- * Main entry point for the Garmin Connect library
- * This file exports the public API - both types and implementations
- */
+import { GarminConnectClientImpl } from './client';
+import type { GarminConnectClient, GarminConnectClientConfig } from './types';
 
-// Export types (for TypeScript users who need type information)
-export type { Activity, GarminConnectClient } from './types';
+export type {
+  Activity,
+  ActivityType,
+  AcuteTrainingLoadDTO,
+  BodyBattery,
+  BodyBatteryActivityEvent,
+  BodyBatteryDynamicFeedbackEvent,
+  Calories,
+  EventType,
+  Floors,
+  GolfCourseSnapshot,
+  GolfCourseSnapshotResponse,
+  GarminConnectClient,
+  GarminConnectClientConfig,
+  HeartRate,
+  HeartRateZoneScalar,
+  Hydration,
+  IntensityMinutes,
+  MfaCodeProvider,
+  Movement,
+  Privacy,
+  PulseOx,
+  RecordedDevice,
+  Respiration,
+  Steps,
+  Stress,
+  TrainingStatusData,
+  TrainingStatusDailyScalar,
+  TrainingStatusWeeklyScalar,
+  UserDailySummary,
+  WellnessChronology,
+} from './types';
 
-// Export implementations (the actual classes/functions users will use)
-export { GarminConnectClientImpl } from './client';
+export {
+  ActivityTypeKey,
+  EventTypeKey,
+  PrivacyTypeKey,
+  StressQualifier,
+  BodyBatteryLevel,
+  TrainingStatus,
+  FitnessTrend,
+  AcwrStatus,
+  TrainingStatusFeedbackPhrase,
+  AcwrStatusFeedback,
+  BodyBatteryFeedbackType,
+  BodyBatteryShortFeedback,
+  BodyBatteryEventType,
+  HrvStatus,
+  Sport,
+  SubSport,
+  ChangeState,
+  TrainingMethod,
+  // Zod schemas for runtime validation
+  ActivitySchema,
+  ActivityTypeSchema,
+  EventTypeSchema,
+  PrivacySchema,
+  GolfCourseSnapshotSchema,
+  GolfCourseSnapshotResponseSchema,
+  StepsSchema,
+  FloorsSchema,
+  MovementSchema,
+  CaloriesSchema,
+  HeartRateSchema,
+  IntensityMinutesSchema,
+  StressSchema,
+  BodyBatteryDynamicFeedbackEventSchema,
+  BodyBatteryActivityEventSchema,
+  BodyBatterySchema,
+  HydrationSchema,
+  RespirationSchema,
+  PulseOxSchema,
+  WellnessChronologySchema,
+  UserDailySummarySchema,
+  AcuteTrainingLoadDTOSchema,
+  TrainingStatusDataSchema,
+  RecordedDeviceSchema,
+  TrainingStatusDailyScalarSchema,
+  TrainingStatusWeeklyScalarSchema,
+  HeartRateZoneScalarSchema,
+} from './types';
+
+// Export all custom exceptions
+export {
+  AuthenticationError, ClientError, CsrfTokenError, GarminConnectError, HttpError, InvalidCredentialsError, MfaCodeError,
+  MfaCodeInvalidError, MfaError,
+  MfaRequiredError, NotAuthenticatedError,
+  NotImplementedError, OAuthError,
+  OAuthIdentityError,
+  OAuthTokenError
+} from './errors';
+
+// Creates a new Garmin Connect client and performs login
+// @param config - Configuration with username and password
+// @returns Promise resolving to an authenticated client instance
+export async function create(config: GarminConnectClientConfig): Promise<GarminConnectClient> {
+  return GarminConnectClientImpl.createAuthenticated(config);
+}

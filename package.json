@@ -30,14 +30,22 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/tough-cookie": "^4.0.5",
     "@vitest/ui": "^1.1.0",
+    "dotenv": "^16.4.5",
     "husky": "^9.0.11",
     "prettier": "^3.2.4",
     "typescript": "^5.3.3",
     "vitest": "^1.1.0"
   },
-  "peerDependencies": {},
-  "dependencies": {}
+  "dependencies": {
+    "@types/qs": "^6.14.0",
+    "axios": "^1.13.2",
+    "axios-cookiejar-support": "^4.0.7",
+    "form-data": "^4.0.5",
+    "oauth-1.0a": "^2.2.6",
+    "qs": "^6.14.0",
+    "tough-cookie": "^4.1.3",
+    "zod": "^3.22.4"
+  }
 }
-
-

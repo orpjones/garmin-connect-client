@@ -25,6 +25,10 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+!.env.example
+
+# HAR files
+*.har
 
 # Testing
 coverage/

@@ -1,37 +1,281 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { GarminConnectClientImpl } from './client';
-import type { GarminConnectClient, Activity } from './types';
+// Functional tests for Garmin Connect client
+//
+// SETUP INSTRUCTIONS:
+// Create a `.env` file in the project root with the following variables:
+//    GARMIN_USERNAME=your-email@example.com
+//    GARMIN_PASSWORD=your-password
+//    GARMIN_MFA_USERNAME=mfa-email@example.com
+//    GARMIN_MFA_PASSWORD=mfa-password
+//
+// NOTE: The MFA test requires console input and is automatically skipped when CI=true
+import { spawn } from 'child_process';
+import { config } from 'dotenv';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  InvalidCredentialsError,
+  MfaCodeInvalidError,
+  MfaRequiredError,
+} from './errors';
+import { create } from './index';
+import type { MfaCodeProvider } from './types';
+import { ActivityTypeKey, EventTypeKey, PrivacyTypeKey } from './types';
 
-describe('GarminConnectClientImpl', () => {
-  let client: GarminConnectClient;
+// Environment variables - loaded in beforeAll hook
+let GARMIN_USERNAME: string | undefined;
+let GARMIN_PASSWORD: string | undefined;
+let GARMIN_MFA_USERNAME: string | undefined;
+let GARMIN_MFA_PASSWORD: string | undefined;
+let IS_CI: boolean;
 
-  beforeEach(() => {
-    client = new GarminConnectClientImpl();
+// Helper to read MFA code by opening a temp file in the default editor
+// User edits the file, saves it, and we read the code
+function readMfaCodeFromConsole(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const tempFile = path.join(os.tmpdir(), `garmin-mfa-${Date.now()}-${Math.random().toString(36).substring(7)}.txt`);
+    fs.writeFileSync(tempFile, 'Enter your MFA code below, then save and close this file:\n\n', 'utf8');
+
+    const initialMtime = fs.statSync(tempFile).mtimeMs;
+    const maxWaitTime = 600000; // 10 minutes
+    const startTime = Date.now();
+
+    // Platform-specific editor commands
+    const editorCommand =
+      process.platform === 'darwin'
+        ? { command: 'open', args: ['-t', tempFile] }
+        : process.platform === 'win32'
+          ? { command: 'cmd', args: ['/c', 'start', 'notepad', tempFile] }
+          : { command: 'xdg-open', args: [tempFile] };
+
+    spawn(editorCommand.command, editorCommand.args, {
+      detached: true,
+      stdio: 'ignore',
+    }).on('error', (err: Error) => reject(new Error(`Failed to open editor: ${err.message}`)));
+
+    // Cleanup helper
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+
+    // Poll for file changes
+    const interval = setInterval(() => {
+      try {
+        if (!fs.existsSync(tempFile)) {
+          clearInterval(interval);
+          cleanup();
+          reject(new Error('MFA input file was deleted'));
+          return;
+        }
+
+        const stats = fs.statSync(tempFile);
+        const content = fs.readFileSync(tempFile, 'utf8');
+        const code = content.replace(/Enter your MFA code.*\n\n?/i, '').trim();
+
+        if (stats.mtimeMs > initialMtime && code) {
+          clearInterval(interval);
+          cleanup();
+          resolve(code);
+        } else if (Date.now() - startTime > maxWaitTime) {
+          clearInterval(interval);
+          cleanup();
+          reject(new Error('Timeout waiting for MFA code input'));
+        }
+      } catch (err) {
+        clearInterval(interval);
+        cleanup();
+        reject(new Error(`Error reading MFA code file: ${err instanceof Error ? err.message : String(err)}`));
+      }
+    }, 500);
+  });
+}
+
+// MFA code provider that reads from console dynamically when called
+class ConsoleMfaProvider implements MfaCodeProvider {
+  async getMfaCode(): Promise<string> {
+    return readMfaCodeFromConsole();
+  }
+}
+
+// MFA code provider that returns a fixed invalid code for testing
+class InvalidMfaProvider implements MfaCodeProvider {
+  async getMfaCode(): Promise<string> {
+    return '000000'; // Invalid code
+  }
+}
+
+describe('GarminConnectClient', () => {
+  beforeAll(() => {
+    // Load .env file from project root
+    // Use process.cwd() which should be the project root when running tests
+    const envPath = path.resolve(process.cwd(), '.env');
+    const result = config({ path: envPath });
+    if (result.error && fs.existsSync(envPath)) {
+      console.warn(`Warning: Failed to load .env file: ${result.error.message}`);
+    }
+    
+    // Load environment variables
+    GARMIN_USERNAME = process.env.GARMIN_USERNAME;
+    GARMIN_PASSWORD = process.env.GARMIN_PASSWORD;
+    GARMIN_MFA_USERNAME = process.env.GARMIN_MFA_USERNAME;
+    GARMIN_MFA_PASSWORD = process.env.GARMIN_MFA_PASSWORD;
+    IS_CI = process.env.CI === 'true' || process.env.CI === '1';
   });
 
-  describe('implements GarminConnectClient interface', () => {
-    it('should be an instance of GarminConnectClientImpl', () => {
-      expect(client).toBeInstanceOf(GarminConnectClientImpl);
+  describe('create and authenticate (Basic Login - No MFA)', () => {
+    beforeAll(() => {
+      // Fail fast if credentials are missing
+      if (!GARMIN_USERNAME || !GARMIN_PASSWORD) {
+        throw new Error('GARMIN_USERNAME and GARMIN_PASSWORD must be set in .env file');
+      }
     });
 
-    it('should satisfy the GarminConnectClient interface contract', () => {
-      // TypeScript ensures this at compile time, but we can verify at runtime
-      expect(client).toHaveProperty('getActivities');
-      expect(client).toHaveProperty('getActivity');
-      expect(typeof client.getActivities).toBe('function');
-      expect(typeof client.getActivity).toBe('function');
+    it('should create and authenticate a client instance', async () => { 
+      const client = await create({
+        username: GARMIN_USERNAME!,
+        password: GARMIN_PASSWORD!,
+      });
+    }, 30000);
+
+    it('should throw an error for invalid password', async () => {
+      await expect(
+        create({
+          username: GARMIN_USERNAME!,
+          password: 'invalid-password',
+        })
+      ).rejects.toThrow(InvalidCredentialsError);
+    }, 30000);
+
+    it('should throw an error for invalid username', async () => {
+      await expect(
+        create({
+          username: 'invalid-username@example.com',
+          password: 'some-password',
+        })
+      ).rejects.toThrow(InvalidCredentialsError);
+    }, 30000);
+  });
+
+  describe('create and authenticate (MFA Login)', () => {
+    beforeAll(() => {
+      // Fail fast if credentials are missing
+      if (!GARMIN_MFA_USERNAME || !GARMIN_MFA_PASSWORD) {
+        throw new Error('GARMIN_MFA_USERNAME and GARMIN_MFA_PASSWORD must be set in .env file');
+      }
     });
+
+    it.skipIf(IS_CI)(
+      'should successfully authenticate with MFA (skipped in CI)',
+      async () => {
+        // The MFA provider will be called dynamically during authentication
+        // when MFA is detected. The user will be prompted at that point.
+        const mfaProvider = new ConsoleMfaProvider();
+        
+        const client = await create({
+          username: GARMIN_MFA_USERNAME!,
+          password: GARMIN_MFA_PASSWORD!,
+          mfaCodeProvider: mfaProvider,
+        });
+
+        expect(client).toBeDefined();
+        // TODO: Implement this test
+      },
+      600000 // 10 minute timeout to allow for MFA input
+    );
+
+    it('should throw an error for invalid password with MFA account', async () => {
+      await expect(
+        create({
+          username: GARMIN_MFA_USERNAME!,
+          password: 'invalid-password',
+        })
+      ).rejects.toThrow(InvalidCredentialsError);
+    }, 30000);
+
+    it('should throw an error when MFA is required but no provider is configured', async () => {
+      // This test assumes the MFA account requires MFA
+      // If it doesn't require MFA, this test will fail with a different error
+      await expect(
+        create({
+          username: GARMIN_MFA_USERNAME!,
+          password: GARMIN_MFA_PASSWORD!,
+          // No mfaCodeProvider provided
+        })
+      ).rejects.toThrow(MfaRequiredError);
+    }, 30000);
+
+    it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
+      const invalidMfaProvider = new InvalidMfaProvider();
+      
+      await expect(
+        create({
+          username: GARMIN_MFA_USERNAME!,
+          password: GARMIN_MFA_PASSWORD!,
+          mfaCodeProvider: invalidMfaProvider,
+        })
+      ).rejects.toThrow(MfaCodeInvalidError);
+    }, 30000);
   });
 
   describe('getActivities', () => {
-    it('should throw not implemented error', async () => {
-      await expect(client.getActivities()).rejects.toThrow('Not implemented');
-    });
-  });
+    let client: Awaited<ReturnType<typeof create>>;
 
-  describe('getActivity', () => {
-    it('should throw not implemented error', async () => {
-      await expect(client.getActivity('123')).rejects.toThrow('Not implemented');
-    });
+    beforeAll(async () => {
+      // Fail fast if MFA credentials are missing
+      if (!GARMIN_MFA_USERNAME || !GARMIN_MFA_PASSWORD) {
+        throw new Error('GARMIN_MFA_USERNAME and GARMIN_MFA_PASSWORD must be set in .env file');
+      }
+
+      // Create a single client instance to reuse across all tests
+      // Uses MFA account and requires MFA provider
+      const mfaProvider = new ConsoleMfaProvider();
+      client = await create({
+        username: GARMIN_MFA_USERNAME!,
+        password: GARMIN_MFA_PASSWORD!,
+        mfaCodeProvider: mfaProvider,
+      });
+    }, 600000); // 10 minute timeout to allow for MFA input
+
+    it('should retrieve a list of activities', async () => {
+      const activities = await client.getActivities();
+
+      expect(activities).toBeDefined();
+      expect(Array.isArray(activities)).toBe(true);
+      expect(activities.length).toBeGreaterThan(0);
+    }, 30000);
+
+    it('should support pagination with start and limit parameters', async () => {
+      // Get first page
+      const firstPage = await client.getActivities(0, 5);
+      expect(firstPage).toBeDefined();
+      expect(Array.isArray(firstPage)).toBe(true);
+      expect(firstPage.length).toBeLessThanOrEqual(5);
+
+      // Get second page if there are more than 5 activities
+      if (firstPage.length === 5) {
+        const secondPage = await client.getActivities(5, 5);
+        expect(secondPage).toBeDefined();
+        expect(Array.isArray(secondPage)).toBe(true);
+        
+        // Activities should be different
+        if (secondPage.length > 0 && firstPage.length > 0) {
+          expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
+        }
+      }
+    }, 30000);
+
+    it('should use default pagination values when not specified', async () => {
+      const activities = await client.getActivities();
+      
+      expect(activities).toBeDefined();
+      expect(Array.isArray(activities)).toBe(true);
+      // Default limit is 20
+      expect(activities.length).toBeLessThanOrEqual(20);
+    }, 30000);
   });
 });

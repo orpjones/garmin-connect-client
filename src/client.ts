@@ -1,17 +1,57 @@
-/**
- * Garmin Connect client implementation
- */
+import { z } from 'zod';
+import { NotAuthenticatedError } from './errors';
+import { HttpClient } from './http-client';
+import type { Activity, GarminConnectClient, GarminConnectClientConfig } from './types';
+import { ActivitySchema } from './types';
+import { GarminUrls } from './urls';
 
-import type { Activity, GarminConnectClient } from './types';
+// Response schema for activities list
+const ActivitiesResponseSchema = z.array(ActivitySchema);
 
 export class GarminConnectClientImpl implements GarminConnectClient {
-  async getActivities(): Promise<Activity[]> {
-    // Implementation here
-    throw new Error('Not implemented');
+  private config: GarminConnectClientConfig;
+  private httpClient: HttpClient;
+  private urls: GarminUrls;
+
+  private constructor(config: GarminConnectClientConfig) {
+    this.config = config;
+    this.urls = new GarminUrls();
+    this.httpClient = new HttpClient(this.urls, config.mfaCodeProvider);
+  }
+
+  static async createAuthenticated(config: GarminConnectClientConfig): Promise<GarminConnectClientImpl> {
+    const client = new GarminConnectClientImpl(config);
+    await client.login();
+    return client;
+  }
+
+  private async login(): Promise<void> {
+    await this.httpClient.authenticate(this.config.username, this.config.password);
+  }
+
+  // Checks if the client is authenticated by delegating to HttpClient
+  // This ensures the authentication state is always in sync with token state
+  private isAuthenticated(): boolean {
+    return this.httpClient.isAuthenticated();
+  }
+
+  async getActivities(start = 0, limit = 20): Promise<Activity[]> {
+    if (!this.isAuthenticated()) {
+      throw new NotAuthenticatedError();
+    }
+
+    const url = this.urls.ACTIVITY_SEARCH(start, limit);
+    const response = await this.httpClient.get<unknown>(url);
+    return ActivitiesResponseSchema.parse(response);
   }
 
   async getActivity(id: string): Promise<Activity> {
-    // Implementation here
-    throw new Error('Not implemented');
+    if (!this.isAuthenticated()) {
+      throw new NotAuthenticatedError();
+    }
+
+    const url = this.urls.ACTIVITY_DETAIL(id);
+    const response = await this.httpClient.get<unknown>(url);
+    return ActivitySchema.parse(response);
   }
 }
