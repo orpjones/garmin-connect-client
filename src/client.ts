@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { NotAuthenticatedError } from './errors';
 import { HttpClient } from './http-client';
-import type { Activity, GarminConnectClient, GarminConnectClientConfig } from './types';
-import { ActivitySchema } from './types';
+import type { Activity, GarminConnectClient, GarminConnectClientConfig, GolfActivitiesResponse } from './types';
+import { ActivitySchema, GolfActivitiesResponseSchema } from './types';
 import { GarminUrls } from './urls';
 
 // Response schema for activities list
@@ -53,5 +53,15 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     const url = this.urls.ACTIVITY_DETAIL(id);
     const response = await this.httpClient.get<unknown>(url);
     return ActivitySchema.parse(response);
+  }
+
+  async getGolfActivities(page = 1, perPage = 20, locale = 'en'): Promise<GolfActivitiesResponse> {
+    if (!this.isAuthenticated()) {
+      throw new NotAuthenticatedError();
+    }
+
+    const url = this.urls.GOLF_ACTIVITIES(page, perPage, locale);
+    const response = await this.httpClient.get(url);
+    return GolfActivitiesResponseSchema.parse(response);
   }
 }

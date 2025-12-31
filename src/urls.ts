@@ -10,6 +10,8 @@ export class GarminUrls {
   readonly MOBILE_SERVICE = 'https://mobile.integration.garmin.com/gcm/ios';
   // Activity API endpoints
   readonly ACTIVITY_BASE = 'https://connectapi.garmin.com/activitylist-service';
+  // Golf API endpoints
+  readonly GOLF_API_BASE = 'https://golf.garmin.com/gcs-golfcommunity/api/v2';
 
   // Client ID for mobile API authentication
   readonly CLIENT_ID_MOBILE = 'GCM_IOS_DARK';
@@ -88,5 +90,10 @@ export class GarminUrls {
 
   ACTIVITY_DETAIL(activityId: string | number): string {
     return `${this.ACTIVITY_BASE}/activities/${activityId}`;
+  }
+
+  // Golf API methods
+  GOLF_ACTIVITIES(page = 1, perPage = 20, locale = 'en'): string {
+    return `${this.GOLF_API_BASE}/activity?user-locale=${locale}&page=${page}&per-page=${perPage}`;
   }
 }

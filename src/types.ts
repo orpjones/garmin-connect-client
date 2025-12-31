@@ -349,6 +349,56 @@ export type GolfCourseSnapshot = z.infer<typeof GolfCourseSnapshotSchema>;
 export type GolfCourseSnapshotResponse = z.infer<typeof GolfCourseSnapshotResponseSchema>;
 
 // ============================================================================
+// Golf Activity Types
+// ============================================================================
+
+export const GolfActivityHoleSchema = z.object({
+  number: z.number(),
+  strokes: z.number().optional(),
+});
+
+export const GolfScorecardActivitySchema = z.object({
+  id: z.number(),
+  scoreType: z.string(), // e.g., "STROKE_PLAY"
+  courseName: z.string(),
+  holePars: z.string(), // String representation of par for each hole
+  startTime: z.string(), // ISO 8601 format
+  strokes: z.number(),
+  handicappedStrokes: z.number(),
+  scoreWithHandicap: z.number(),
+  scoreWithoutHandicap: z.number(),
+  holesCompleted: z.number(),
+  activityHoles: z.array(GolfActivityHoleSchema),
+  roundType: z.string(), // e.g., "ALL", "FRONT_9"
+  courseCounting: z.boolean(),
+});
+
+export const GolfDrivingRangeActivitySchema = z.object({
+  drivingRangeId: z.number(),
+  clientKey: z.string(),
+  name: z.string(),
+  startTime: z.string(), // ISO 8601 format
+  numShots: z.number(),
+  numClubs: z.number(),
+  numVideo: z.number(),
+  type: z.string(), // e.g., "DRIVING_RANGE"
+});
+
+export const GolfActivitiesResponseSchema = z.object({
+  pageNumber: z.number(),
+  rowsPerPage: z.number(),
+  hasNextPage: z.boolean(),
+  scorecardActivities: z.array(GolfScorecardActivitySchema),
+  tournamentActivities: z.array(z.unknown()), // Tournament activities structure not fully captured
+  drivingRangeActivities: z.array(GolfDrivingRangeActivitySchema),
+});
+
+export type GolfActivityHole = z.infer<typeof GolfActivityHoleSchema>;
+export type GolfScorecardActivity = z.infer<typeof GolfScorecardActivitySchema>;
+export type GolfDrivingRangeActivity = z.infer<typeof GolfDrivingRangeActivitySchema>;
+export type GolfActivitiesResponse = z.infer<typeof GolfActivitiesResponseSchema>;
+
+// ============================================================================
 // Wellness Types
 // ============================================================================
 
@@ -608,6 +658,7 @@ export interface GarminConnectClientConfig {
 export interface GarminConnectClient {
   getActivities(start?: number, limit?: number): Promise<Activity[]>;
   getActivity(id: string): Promise<Activity>;
+  getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesResponse>;
 }
 
 // Provider interface for MFA codes

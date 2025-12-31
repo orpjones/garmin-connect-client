@@ -25,6 +25,7 @@ let GARMIN_PASSWORD: string | undefined;
 let GARMIN_MFA_USERNAME: string | undefined;
 let GARMIN_MFA_PASSWORD: string | undefined;
 let IS_CI: boolean;
+let shouldRunInteractiveMFATests: boolean;
 
 // Helper to read MFA code by opening a temp file in the default editor
 // User edits the file, saves it, and we read the code
@@ -121,9 +122,11 @@ describe('GarminConnectClient', () => {
     GARMIN_MFA_USERNAME = process.env.GARMIN_MFA_USERNAME;
     GARMIN_MFA_PASSWORD = process.env.GARMIN_MFA_PASSWORD;
     IS_CI = process.env.CI === 'true' || process.env.CI === '1';
+    // Interactive MFA tests require user input and should be skipped in CI
+    shouldRunInteractiveMFATests = !IS_CI;
   });
 
-  describe('create and authenticate (Basic Login - No MFA)', () => {
+  describe.skipIf(!shouldRunInteractiveMFATests)('create and authenticate (Basic Login - No MFA)', () => {
     beforeAll(() => {
       // Fail fast if credentials are missing
       if (!GARMIN_USERNAME || !GARMIN_PASSWORD) {
@@ -165,7 +168,7 @@ describe('GarminConnectClient', () => {
       }
     });
 
-    it.skipIf(IS_CI)(
+    it.skipIf(!shouldRunInteractiveMFATests)(
       'should successfully authenticate with MFA (skipped in CI)',
       async () => {
         // The MFA provider will be called dynamically during authentication
@@ -218,7 +221,7 @@ describe('GarminConnectClient', () => {
     }, 30000);
   });
 
-  describe('getActivities', () => {
+  describe.skipIf(!shouldRunInteractiveMFATests)('getActivities', () => {
     let client: Awaited<ReturnType<typeof create>>;
 
     beforeAll(async () => {
@@ -272,6 +275,39 @@ describe('GarminConnectClient', () => {
       expect(Array.isArray(activities)).toBe(true);
       // Default limit is 20
       expect(activities.length).toBeLessThanOrEqual(20);
+    }, 30000);
+
+    it('should retrieve golf activities', async () => {
+      const golfActivities = await client.getGolfActivities();
+
+      expect(golfActivities).toBeDefined();
+    }, 30000);
+
+    it('should support pagination with page and perPage parameters for golf activities', async () => {
+      // Get first page
+      const firstPage = await client.getGolfActivities(1, 5);
+      expect(firstPage.pageNumber).toBe(1);
+      expect(firstPage.rowsPerPage).toBe(5);
+
+      // Get second page if there are more activities
+      if (firstPage.hasNextPage) {
+        const secondPage = await client.getGolfActivities(2, 5);
+        expect(secondPage.pageNumber).toBe(2);
+        expect(secondPage.rowsPerPage).toBe(5);
+
+        // Activities should be different if both pages have data
+        if (secondPage.scorecardActivities.length > 0 && firstPage.scorecardActivities.length > 0) {
+          expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
+        }
+      }
+    }, 30000);
+
+    it('should use default pagination values when not specified for golf activities', async () => {
+      const golfActivities = await client.getGolfActivities();
+
+      expect(golfActivities.pageNumber).toBe(1);
+      // Default perPage is 20
+      expect(golfActivities.rowsPerPage).toBe(20);
     }, 30000);
   });
 });
