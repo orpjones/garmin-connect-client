@@ -30,6 +30,9 @@ let GARMIN_MFA_PASSWORD: string | undefined;
 let IS_CI: boolean = false;
 let shouldRunInteractiveMFATests: boolean = true; // Default to true, will be set in beforeAll
 
+// Shared authenticated MFA client - created by first test, reused by subsequent tests
+let mfaClient: GarminConnectClient | undefined;
+
 // Helper function to validate basic credentials are set
 function requireBasicCredentials(): void {
   if (!GARMIN_USERNAME || !GARMIN_PASSWORD) {
@@ -42,6 +45,16 @@ function requireMfaCredentials(): void {
   if (!GARMIN_MFA_USERNAME || !GARMIN_MFA_PASSWORD) {
     throw new Error('GARMIN_MFA_USERNAME and GARMIN_MFA_PASSWORD must be set in .env file');
   }
+}
+
+// Helper function to require that MFA client has been created
+function requireMfaClient(): GarminConnectClient {
+  if (!mfaClient) {
+    throw new Error(
+      'MFA client not initialized. The first MFA test must run successfully before other MFA tests can run.'
+    );
+  }
+  return mfaClient;
 }
 
 // Helper to read MFA code by opening a temp file in the default editor
@@ -127,6 +140,9 @@ describe('GarminConnectClient', () => {
     IS_CI = process.env.CI === 'true' || process.env.CI === '1';
     // Interactive MFA tests require user input and should be skipped in CI
     shouldRunInteractiveMFATests = !IS_CI;
+
+    // Reset shared MFA client at the start of each test run
+    mfaClient = undefined;
   });
 
   describe('create and authenticate (Basic Login - No MFA)', () => {
@@ -160,35 +176,8 @@ describe('GarminConnectClient', () => {
         })
       ).rejects.toThrow(InvalidCredentialsError);
     }, 30_000);
-  });
 
-  describe('create and authenticate (MFA Login)', () => {
-    beforeAll(() => {
-      // Only require credentials for interactive tests
-      if (shouldRunInteractiveMFATests) {
-        requireMfaCredentials();
-      }
-    });
-
-    it.skipIf(!shouldRunInteractiveMFATests)(
-      'should successfully authenticate with MFA (skipped in CI)',
-      async () => {
-        const authContext = await createAuthContext({
-          username: GARMIN_MFA_USERNAME!,
-          password: GARMIN_MFA_PASSWORD!,
-        });
-
-        expect(authContext.mfaRequired).toBe(true);
-        expect(authContext.mfaMethod).toBeDefined();
-
-        const mfaCode = await readMfaCodeFromConsole();
-        const client = await create(authContext, mfaCode);
-        expect(client).toBeDefined();
-      },
-      600_000 // 10 minute timeout to allow for MFA input
-    );
-
-    it('should throw an error for invalid password with MFA account', async () => {
+    it('should throw an error for invalid password (generic test)', async () => {
       // This test doesn't require real credentials - it tests error handling
       await expect(
         createAuthContext({
@@ -197,114 +186,119 @@ describe('GarminConnectClient', () => {
         })
       ).rejects.toThrow(InvalidCredentialsError);
     }, 30_000);
-
-    it.skipIf(!shouldRunInteractiveMFATests)(
-      'should throw MfaCodeInvalidError when invalid MFA code is provided',
-      async () => {
-        const authContext = await createAuthContext({
-          username: GARMIN_MFA_USERNAME!,
-          password: GARMIN_MFA_PASSWORD!,
-        });
-
-        if (authContext.mfaRequired) {
-          await expect(create(authContext, '000000')).rejects.toThrow(MfaCodeInvalidError);
-        }
-      },
-      30_000
-    );
   });
 
-  describe.skipIf(!shouldRunInteractiveMFATests)('getActivities', () => {
-    let client: GarminConnectClient;
-
-    beforeAll(async () => {
-      // Fail fast if MFA credentials are missing
+  // MFA tests: The first test creates the shared client, subsequent tests depend on it
+  // Tests within a describe block run sequentially by default in Vitest
+  describe.skipIf(!shouldRunInteractiveMFATests)('create and authenticate (MFA Login)', () => {
+    beforeAll(() => {
+      // Only require credentials for interactive tests
       requireMfaCredentials();
+    });
 
-      // Create a single client instance to reuse across all tests
-      // Uses MFA account and requires MFA provider
+    it('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
+      const authContext = await createAuthContext({
+        username: GARMIN_MFA_USERNAME!,
+        password: GARMIN_MFA_PASSWORD!,
+      });
+
+      expect(authContext.mfaRequired).toBe(true);
+      expect(authContext.mfaMethod).toBeDefined();
+
+      const mfaCode = await readMfaCodeFromConsole();
+      mfaClient = await create(authContext, mfaCode);
+      expect(mfaClient).toBeDefined();
+    }, 600_000); // 10 minute timeout to allow for MFA input
+
+    it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
       const authContext = await createAuthContext({
         username: GARMIN_MFA_USERNAME!,
         password: GARMIN_MFA_PASSWORD!,
       });
 
       if (authContext.mfaRequired) {
-        const mfaCode = await readMfaCodeFromConsole();
-        client = await create(authContext, mfaCode);
-      } else {
-        client = await create(authContext);
+        await expect(create(authContext, '000000')).rejects.toThrow(MfaCodeInvalidError);
       }
-    }, 600_000); // 10 minute timeout to allow for MFA input
-
-    it('should retrieve a list of activities', async () => {
-      const activities = await client.getActivities();
-
-      expect(activities).toBeDefined();
-      expect(Array.isArray(activities)).toBe(true);
-      expect(activities.length).toBeGreaterThan(0);
     }, 30_000);
 
-    it('should support pagination with start and limit parameters', async () => {
-      // Get first page
-      const firstPage = await client.getActivities(0, 5);
-      expect(firstPage).toBeDefined();
-      expect(Array.isArray(firstPage)).toBe(true);
-      expect(firstPage.length).toBeLessThanOrEqual(5);
+    // These tests depend on mfaClient being initialized by the first test above
+    describe('getActivities', () => {
+      it('should retrieve a list of activities', async () => {
+        const client = requireMfaClient();
+        const activities = await client.getActivities();
 
-      // Get second page if there are more than 5 activities
-      if (firstPage.length === 5) {
-        const secondPage = await client.getActivities(5, 5);
-        expect(secondPage).toBeDefined();
-        expect(Array.isArray(secondPage)).toBe(true);
+        expect(activities).toBeDefined();
+        expect(Array.isArray(activities)).toBe(true);
+        expect(activities.length).toBeGreaterThan(0);
+      }, 30_000);
 
-        // Activities should be different
-        if (secondPage.length > 0 && firstPage.length > 0) {
-          expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
+      it('should support pagination with start and limit parameters', async () => {
+        const client = requireMfaClient();
+        // Get first page
+        const firstPage = await client.getActivities(0, 5);
+        expect(firstPage).toBeDefined();
+        expect(Array.isArray(firstPage)).toBe(true);
+        expect(firstPage.length).toBeLessThanOrEqual(5);
+
+        // Get second page if there are more than 5 activities
+        if (firstPage.length === 5) {
+          const secondPage = await client.getActivities(5, 5);
+          expect(secondPage).toBeDefined();
+          expect(Array.isArray(secondPage)).toBe(true);
+
+          // Activities should be different
+          if (secondPage.length > 0 && firstPage.length > 0) {
+            expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
+          }
         }
-      }
-    }, 30_000);
+      }, 30_000);
 
-    it('should use default pagination values when not specified', async () => {
-      const activities = await client.getActivities();
+      it('should use default pagination values when not specified', async () => {
+        const client = requireMfaClient();
+        const activities = await client.getActivities();
 
-      expect(activities).toBeDefined();
-      expect(Array.isArray(activities)).toBe(true);
-      // Default limit is 20
-      expect(activities.length).toBeLessThanOrEqual(20);
-    }, 30_000);
+        expect(activities).toBeDefined();
+        expect(Array.isArray(activities)).toBe(true);
+        // Default limit is 20
+        expect(activities.length).toBeLessThanOrEqual(20);
+      }, 30_000);
 
-    it('should retrieve golf activities', async () => {
-      const golfActivities = await client.getGolfActivities();
+      it('should retrieve golf activities', async () => {
+        const client = requireMfaClient();
+        const golfActivities = await client.getGolfActivities();
 
-      expect(golfActivities).toBeDefined();
-    }, 30_000);
+        expect(golfActivities).toBeDefined();
+      }, 30_000);
 
-    it('should support pagination with page and perPage parameters for golf activities', async () => {
-      // Get first page
-      const firstPage = await client.getGolfActivities(1, 5);
-      expect(firstPage.pageNumber).toBe(1);
-      expect(firstPage.rowsPerPage).toBe(5);
+      it('should support pagination with page and perPage parameters for golf activities', async () => {
+        const client = requireMfaClient();
+        // Get first page
+        const firstPage = await client.getGolfActivities(1, 5);
+        expect(firstPage.pageNumber).toBe(1);
+        expect(firstPage.rowsPerPage).toBe(5);
 
-      // Get second page if there are more activities
-      if (firstPage.hasNextPage) {
-        const secondPage = await client.getGolfActivities(2, 5);
-        expect(secondPage.pageNumber).toBe(2);
-        expect(secondPage.rowsPerPage).toBe(5);
+        // Get second page if there are more activities
+        if (firstPage.hasNextPage) {
+          const secondPage = await client.getGolfActivities(2, 5);
+          expect(secondPage.pageNumber).toBe(2);
+          expect(secondPage.rowsPerPage).toBe(5);
 
-        // Activities should be different if both pages have data
-        if (secondPage.scorecardActivities.length > 0 && firstPage.scorecardActivities.length > 0) {
-          expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
+          // Activities should be different if both pages have data
+          if (secondPage.scorecardActivities.length > 0 && firstPage.scorecardActivities.length > 0) {
+            expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
+          }
         }
-      }
-    }, 30_000);
+      }, 30_000);
 
-    it('should use default pagination values when not specified for golf activities', async () => {
-      const golfActivities = await client.getGolfActivities();
+      it('should use default pagination values when not specified for golf activities', async () => {
+        const client = requireMfaClient();
+        const golfActivities = await client.getGolfActivities();
 
-      expect(golfActivities.pageNumber).toBe(1);
-      // Default perPage is 20
-      expect(golfActivities.rowsPerPage).toBe(20);
-    }, 30_000);
+        expect(golfActivities.pageNumber).toBe(1);
+        // Default perPage is 20
+        expect(golfActivities.rowsPerPage).toBe(20);
+      }, 30_000);
+    });
   });
 
   describe('Unauthenticated client', () => {
