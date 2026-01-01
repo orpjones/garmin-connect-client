@@ -37,14 +37,14 @@ let mfaClient: GarminConnectClient | undefined;
 // Helper function to validate basic credentials are set
 function requireBasicCredentials(): void {
   if (!GARMIN_USERNAME || !GARMIN_PASSWORD) {
-    throw new Error('GARMIN_USERNAME and GARMIN_PASSWORD must be set in .env file');
+    throw new Error('GARMIN_USERNAME and GARMIN_PASSWORD must be set as environment variables or in .env file');
   }
 }
 
 // Helper function to validate MFA credentials are set
 function requireMfaCredentials(): void {
   if (!GARMIN_MFA_USERNAME || !GARMIN_MFA_PASSWORD) {
-    throw new Error('GARMIN_MFA_USERNAME and GARMIN_MFA_PASSWORD must be set in .env file');
+    throw new Error('GARMIN_MFA_USERNAME and GARMIN_MFA_PASSWORD must be set as environment variables or in .env file');
   }
 }
 
