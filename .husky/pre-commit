@@ -12,6 +12,6 @@ fi
 # Lint
 npm run lint
 
-# Run tests in CI mode (skips interactive MFA tests)
-CI=true npm run test:run
+# Run tests
+npm run test:run
 
