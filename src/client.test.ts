@@ -27,8 +27,9 @@ let GARMIN_USERNAME: string | undefined;
 let GARMIN_PASSWORD: string | undefined;
 let GARMIN_MFA_USERNAME: string | undefined;
 let GARMIN_MFA_PASSWORD: string | undefined;
-let IS_CI: boolean = false;
-let shouldRunInteractiveMFATests: boolean = true; // Default to true, will be set in beforeAll
+// Check CI status immediately (before describe blocks are registered)
+const IS_CI: boolean = process.env.CI === 'true' || process.env.CI === '1';
+const shouldRunInteractiveMFATests: boolean = !IS_CI; // Interactive MFA tests require user input and should be skipped in CI
 
 // Shared authenticated MFA client - created by first test, reused by subsequent tests
 let mfaClient: GarminConnectClient | undefined;
@@ -137,9 +138,6 @@ describe('GarminConnectClient', () => {
     GARMIN_PASSWORD = process.env.GARMIN_PASSWORD;
     GARMIN_MFA_USERNAME = process.env.GARMIN_MFA_USERNAME;
     GARMIN_MFA_PASSWORD = process.env.GARMIN_MFA_PASSWORD;
-    IS_CI = process.env.CI === 'true' || process.env.CI === '1';
-    // Interactive MFA tests require user input and should be skipped in CI
-    shouldRunInteractiveMFATests = !IS_CI;
 
     // Reset shared MFA client at the start of each test run
     mfaClient = undefined;
@@ -188,11 +186,8 @@ describe('GarminConnectClient', () => {
     }, 30_000);
   });
 
-  // MFA tests: The first test creates the shared client, subsequent tests depend on it
-  // Tests within a describe block run sequentially by default in Vitest
   describe.skipIf(!shouldRunInteractiveMFATests)('create and authenticate (MFA Login)', () => {
     beforeAll(() => {
-      // Only require credentials for interactive tests
       requireMfaCredentials();
     });
 
