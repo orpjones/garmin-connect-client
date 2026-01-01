@@ -652,18 +652,12 @@ export type HeartRateZoneScalar = z.infer<typeof HeartRateZoneScalarSchema>;
 export interface GarminConnectClientConfig {
   username: string;
   password: string;
-  mfaCodeProvider?: MfaCodeProvider;
 }
 
 export interface GarminConnectClient {
   getActivities(start?: number, limit?: number): Promise<Activity[]>;
   getActivity(id: string): Promise<Activity>;
   getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesResponse>;
-}
-
-// Provider interface for MFA codes
-export interface MfaCodeProvider {
-  getMfaCode(): Promise<string>;
 }
 
 // OAuth 1.0 application identity (key/secret)

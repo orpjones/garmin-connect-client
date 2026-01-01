@@ -182,3 +182,14 @@ export class HttpError extends GarminConnectError {
     Object.setPrototypeOf(this, HttpError.prototype);
   }
 }
+
+/**
+ * Thrown when required authentication context data is missing
+ */
+export class AuthenticationContextError extends AuthenticationError {
+  constructor(message: string = 'Required authentication context data is missing') {
+    super(message);
+    this.name = 'AuthenticationContextError';
+    Object.setPrototypeOf(this, AuthenticationContextError.prototype);
+  }
+}

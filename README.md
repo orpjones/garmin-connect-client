@@ -36,36 +36,21 @@ npm run clean
 
 ## Usage
 
-### Basic Usage
-
 ```typescript
-import { create, type GarminConnectClient } from 'garmin-connect-client';
+import { createAuthContext, create } from 'garmin-connect-client';
 
-// Create an authenticated client
-const client: GarminConnectClient = await create({
+// Step 1: Create an authentication context
+const authContext = await createAuthContext({
   username: 'your-username',
   password: 'your-password',
 });
 
-// Get activities
+// Step 2: Create authenticated client (provide MFA code if required)
+const mfaCode = authContext.mfaRequired ? await getUserMfaCode() : undefined;
+const client = await create(authContext, mfaCode);
+
+// Use the client
 const activities = await client.getActivities();
-```
-
-### With MFA
-
-If your account uses Multi-Factor Authentication (MFA), provide an `mfaCodeProvider`:
-
-```typescript
-import { create } from 'garmin-connect-client';
-
-const client = await create({
-  username: 'your-username',
-  password: 'your-password',
-  mfaCodeProvider: async () => {
-    // Return the MFA code
-    return '123456';
-  },
-});
 ```
 
 ## Testing

@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
+import { AuthContext } from './auth-context';
+import { AuthenticationService } from './authentication-service';
+import { AuthenticationContextError, MfaCodeError } from './errors';
 import { HttpClient } from './http-client';
-import type { Activity, GarminConnectClient, GarminConnectClientConfig, GolfActivitiesResponse } from './types';
+import type { Activity, GarminConnectClient, GolfActivitiesResponse } from './types';
 import { ActivitySchema, GolfActivitiesResponseSchema } from './types';
 import { GarminUrls } from './urls';
 
@@ -9,29 +12,51 @@ import { GarminUrls } from './urls';
 const ActivitiesResponseSchema = z.array(ActivitySchema);
 
 export class GarminConnectClientImpl implements GarminConnectClient {
-  private config: GarminConnectClientConfig;
   private httpClient: HttpClient;
   private urls: GarminUrls;
 
-  private constructor(config: GarminConnectClientConfig) {
-    this.config = config;
-    this.urls = new GarminUrls();
-    this.httpClient = new HttpClient(this.urls, config.mfaCodeProvider);
+  private constructor(httpClient: HttpClient, urls: GarminUrls) {
+    this.httpClient = httpClient;
+    this.urls = urls;
+  }
+
+  static async create(context: AuthContext, urls: GarminUrls, mfaCode?: string): Promise<GarminConnectClient> {
+    const cookies = context.getCookies();
+
+    let httpClient: HttpClient;
+    if (context.mfaRequired) {
+      if (!mfaCode) {
+        throw new MfaCodeError('MFA code is required when mfaRequired is true');
+      }
+      if (!context.mfaMethod) {
+        throw new AuthenticationContextError('MFA method not found in auth context');
+      }
+      // Complete MFA authentication
+      httpClient = await AuthenticationService.completeAuthentication(urls, cookies, {
+        type: 'mfa',
+        mfaCode,
+        mfaMethod: context.mfaMethod,
+      });
+    } else {
+      // No MFA - use the ticket we already have
+      const ticket = context.getTicket();
+      if (!ticket) {
+        throw new AuthenticationContextError('Ticket not found in auth context');
+      }
+      httpClient = await AuthenticationService.completeAuthentication(urls, cookies, {
+        type: 'ticket',
+        ticket,
+      });
+    }
+
+    return new GarminConnectClientImpl(httpClient, urls);
   }
 
   // Public constructor for testing - creates unauthenticated client
-  static createUnauthenticated(config: GarminConnectClientConfig): GarminConnectClientImpl {
-    return new GarminConnectClientImpl(config);
-  }
-
-  static async createAuthenticated(config: GarminConnectClientConfig): Promise<GarminConnectClientImpl> {
-    const client = new GarminConnectClientImpl(config);
-    await client.login();
-    return client;
-  }
-
-  private async login(): Promise<void> {
-    await this.httpClient.authenticate(this.config.username, this.config.password);
+  static createUnauthenticated(): GarminConnectClientImpl {
+    const urls = new GarminUrls();
+    const httpClient = new HttpClient(urls);
+    return new GarminConnectClientImpl(httpClient, urls);
   }
 
   async getActivities(start = 0, limit = 20): Promise<Activity[]> {
