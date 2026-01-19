@@ -48,16 +48,6 @@ function requireMfaCredentials(): void {
   }
 }
 
-// Helper function to require that MFA client has been created
-function requireMfaClient(): GarminConnectClient {
-  if (!mfaClient) {
-    throw new Error(
-      'MFA client not initialized. The first MFA test must run successfully before other MFA tests can run.'
-    );
-  }
-  return mfaClient;
-}
-
 // Helper to read MFA code by opening a temp file in the default editor
 // User edits the file, saves it, and we read the code
 function readMfaCodeFromConsole(): Promise<string> {
@@ -123,6 +113,23 @@ function readMfaCodeFromConsole(): Promise<string> {
   });
 }
 
+async function getAuthenticatedClient(): Promise<GarminConnectClient> {
+  if (!mfaClient) {
+    const authContext = await createAuthContext({
+      username: GARMIN_MFA_USERNAME!,
+      password: GARMIN_MFA_PASSWORD!,
+    });
+
+    if (!authContext.mfaRequired) {
+      throw new Error('MFA is not required for these credentials; cannot run MFA tests');
+    }
+
+    const mfaCode = await readMfaCodeFromConsole();
+    mfaClient = await create(authContext, mfaCode);
+  }
+  return mfaClient;
+}
+
 describe('GarminConnectClient', () => {
   beforeAll(() => {
     // Load .env file from project root
@@ -155,7 +162,7 @@ describe('GarminConnectClient', () => {
         password: GARMIN_PASSWORD!,
       });
       await create(authContext);
-    }, 30_000);
+    });
 
     it('should throw an error for invalid password', async () => {
       await expect(
@@ -164,7 +171,7 @@ describe('GarminConnectClient', () => {
           password: 'invalid-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
-    }, 30_000);
+    });
 
     it('should throw an error for invalid username', async () => {
       await expect(
@@ -173,7 +180,7 @@ describe('GarminConnectClient', () => {
           password: 'some-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
-    }, 30_000);
+    });
 
     it('should throw an error for invalid password (generic test)', async () => {
       // This test doesn't require real credentials - it tests error handling
@@ -183,7 +190,7 @@ describe('GarminConnectClient', () => {
           password: 'invalid-password',
         })
       ).rejects.toThrow(InvalidCredentialsError);
-    }, 30_000);
+    });
   });
 
   describe.skipIf(!shouldRunInteractiveMFATests)('create and authenticate (MFA Login)', () => {
@@ -192,18 +199,9 @@ describe('GarminConnectClient', () => {
     });
 
     it('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
-      const authContext = await createAuthContext({
-        username: GARMIN_MFA_USERNAME!,
-        password: GARMIN_MFA_PASSWORD!,
-      });
-
-      expect(authContext.mfaRequired).toBe(true);
-      expect(authContext.mfaMethod).toBeDefined();
-
-      const mfaCode = await readMfaCodeFromConsole();
-      mfaClient = await create(authContext, mfaCode);
+      await getAuthenticatedClient();
       expect(mfaClient).toBeDefined();
-    }, 600_000); // 10 minute timeout to allow for MFA input
+    }); // 10 minute timeout to allow for MFA input
 
     it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
       const authContext = await createAuthContext({
@@ -214,21 +212,21 @@ describe('GarminConnectClient', () => {
       if (authContext.mfaRequired) {
         await expect(create(authContext, '000000')).rejects.toThrow(MfaCodeInvalidError);
       }
-    }, 30_000);
+    });
 
     // These tests depend on mfaClient being initialized by the first test above
     describe('getActivities', () => {
       it('should retrieve a list of activities', async () => {
-        const client = requireMfaClient();
+        const client = await getAuthenticatedClient();
         const activities = await client.getActivities();
 
         expect(activities).toBeDefined();
         expect(Array.isArray(activities)).toBe(true);
         expect(activities.length).toBeGreaterThan(0);
-      }, 30_000);
+      });
 
       it('should support pagination with start and limit parameters', async () => {
-        const client = requireMfaClient();
+        const client = await getAuthenticatedClient();
         // Get first page
         const firstPage = await client.getActivities(0, 5);
         expect(firstPage).toBeDefined();
@@ -246,27 +244,27 @@ describe('GarminConnectClient', () => {
             expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
           }
         }
-      }, 30_000);
+      });
 
       it('should use default pagination values when not specified', async () => {
-        const client = requireMfaClient();
+        const client = await getAuthenticatedClient();
         const activities = await client.getActivities();
 
         expect(activities).toBeDefined();
         expect(Array.isArray(activities)).toBe(true);
         // Default limit is 20
         expect(activities.length).toBeLessThanOrEqual(20);
-      }, 30_000);
+      });
 
       it('should retrieve golf activities', async () => {
-        const client = requireMfaClient();
+        const client = await getAuthenticatedClient();
         const golfActivities = await client.getGolfActivities();
 
         expect(golfActivities).toBeDefined();
-      }, 30_000);
+      });
 
       it('should support pagination with page and perPage parameters for golf activities', async () => {
-        const client = requireMfaClient();
+        const client = await getAuthenticatedClient();
         // Get first page
         const firstPage = await client.getGolfActivities(1, 5);
         expect(firstPage.pageNumber).toBe(1);
@@ -283,16 +281,47 @@ describe('GarminConnectClient', () => {
             expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
           }
         }
-      }, 30_000);
+      });
 
       it('should use default pagination values when not specified for golf activities', async () => {
-        const client = requireMfaClient();
+        const client = await getAuthenticatedClient();
         const golfActivities = await client.getGolfActivities();
 
         expect(golfActivities.pageNumber).toBe(1);
         // Default perPage is 20
         expect(golfActivities.rowsPerPage).toBe(20);
-      }, 30_000);
+      });
+
+      it('should enrich golf scorecards with course IDs when available', async () => {
+        const client = await getAuthenticatedClient();
+        const courseRounds = await client.getGolfCourses();
+        const courseByName = new Map(courseRounds.rounds.map(course => [course.name, course]));
+
+        const golfActivities = await client.getGolfActivities();
+        const matchingActivity = golfActivities.scorecardActivities.find(activity =>
+          courseByName.has(activity.courseName)
+        );
+
+        if (matchingActivity) {
+          const course = courseByName.get(matchingActivity.courseName);
+          expect(matchingActivity.courseSnapshotId).toBe(course?.courseSnapshotId);
+          expect(matchingActivity.courseGlobalId).toBe(course?.courseGlobalId);
+          if (matchingActivity.courseSummary) {
+            expect(matchingActivity.courseSummary.courseSnapshotId).toBe(course?.courseSnapshotId);
+            expect(matchingActivity.courseSummary.courseGlobalId).toBe(course?.courseGlobalId);
+            expect(matchingActivity.courseSummary.tees.length).toBeGreaterThan(0);
+          }
+        }
+      });
+
+      it('should retrieve golf course snapshots and details', async () => {
+        const client = await getAuthenticatedClient();
+        const snapshots = await client.getGolfCourses();
+
+        expect(snapshots.rounds).toBeDefined();
+
+        expect(snapshots.rounds.length).toBeGreaterThan(0);
+      });
     });
   });
 

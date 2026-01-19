@@ -96,4 +96,13 @@ export class GarminUrls {
   GOLF_ACTIVITIES(page = 1, perPage = 20, locale = 'en'): string {
     return `${this.GOLF_API_BASE}/activity?user-locale=${locale}&page=${page}&per-page=${perPage}`;
   }
+
+  GOLF_COURSE_SNAPSHOTS(perPage = 10_000, locale = 'en'): string {
+    return `${this.GOLF_API_BASE}/course-snapshot/player?per-page=${perPage}&user-locale=${locale}`;
+  }
+
+  GOLF_COURSE_SNAPSHOT_DETAILS(courseSnapshotIds: number[], locale = 'en'): string {
+    const joinedIds = courseSnapshotIds.join(',');
+    return `${this.GOLF_API_BASE}/course-snapshot?course-snapshot-ids=${joinedIds}&user-locale=${locale}`;
+  }
 }

@@ -327,7 +327,7 @@ export type Activity = z.infer<typeof ActivitySchema>;
 // Golf Course Types
 // ============================================================================
 
-export const GolfCourseSnapshotSchema = z.object({
+export const GolfCourseListItemSchema = z.object({
   courseGlobalId: z.number(),
   courseSnapshotId: z.number(),
   name: z.string(),
@@ -338,15 +338,78 @@ export const GolfCourseSnapshotSchema = z.object({
   lastPlayedTime: z.number(), // Unix timestamp in seconds
 });
 
-export const GolfCourseSnapshotResponseSchema = z.object({
-  pageNumber: z.number(),
-  rowsPerPage: z.number(),
-  totalRows: z.number(),
-  courseSnapshots: z.array(GolfCourseSnapshotSchema),
+export const GolfCoursesPageSchema = z
+  .object({
+    pageNumber: z.number(),
+    rowsPerPage: z.number(),
+    totalRows: z.number(),
+    courseSnapshots: z.array(GolfCourseListItemSchema),
+  })
+  .transform(({ courseSnapshots, ...rest }) => ({
+    ...rest,
+    rounds: courseSnapshots,
+  }));
+
+export type GolfCourseListItem = z.infer<typeof GolfCourseListItemSchema>;
+export type GolfCoursesPage = z.infer<typeof GolfCoursesPageSchema>;
+
+export const GolfHandicapTypeSchema = z.enum(['MEN', 'WOMEN']);
+
+export const GolfCourseTeeSchema = z
+  .object({
+    name: z.string(),
+    handicapType: GolfHandicapTypeSchema.or(z.string()),
+    rating: z.number(),
+    slope: z.number(),
+    holeHandicaps: z.string(),
+  })
+  .passthrough();
+
+export const GolfCourseDetailSchema = z
+  .object({
+    courseGlobalId: z.number(),
+    courseSnapshotId: z.number(),
+    name: z.string(),
+    holePars: z.string(),
+    frontNinePar: z.number(),
+    backNinePar: z.number(),
+    roundPar: z.number(),
+    tees: z.array(GolfCourseTeeSchema),
+    city: z.string().optional(),
+    continent: z.string().optional(),
+    country: z.string().optional(),
+    designYear: z.number().optional(),
+    designer: z.string().optional(),
+    fairways: z.string().optional(),
+    greensType: z.string().optional(),
+    lat: z.number().optional(),
+    lon: z.number().optional(),
+    phone: z.string().optional(),
+    releaseDate: z.string().optional(),
+    state: z.string().optional(),
+    street: z.string().optional(),
+    web: z.string().optional(),
+    zip: z.string().optional(),
+  })
+  .passthrough();
+
+export const GolfCourseDetailsResponseSchema = z.array(GolfCourseDetailSchema);
+
+export const GolfCourseSummarySchema = z.object({
+  courseGlobalId: z.number(),
+  courseSnapshotId: z.number(),
+  name: z.string(),
+  par: z.number(),
+  holeCount: z.number(),
+  tees: z.array(GolfCourseTeeSchema),
+  distanceMeters: z.number().optional(),
 });
 
-export type GolfCourseSnapshot = z.infer<typeof GolfCourseSnapshotSchema>;
-export type GolfCourseSnapshotResponse = z.infer<typeof GolfCourseSnapshotResponseSchema>;
+export type GolfHandicapType = z.infer<typeof GolfHandicapTypeSchema>;
+export type GolfCourseTee = z.infer<typeof GolfCourseTeeSchema>;
+export type GolfCourseDetail = z.infer<typeof GolfCourseDetailSchema>;
+export type GolfCourseDetailsResponse = z.infer<typeof GolfCourseDetailsResponseSchema>;
+export type GolfCourseSummary = z.infer<typeof GolfCourseSummarySchema>;
 
 // ============================================================================
 // Golf Activity Types
@@ -361,6 +424,9 @@ export const GolfScorecardActivitySchema = z.object({
   id: z.number(),
   scoreType: z.string(), // e.g., "STROKE_PLAY"
   courseName: z.string(),
+  courseSnapshotId: z.number().optional(),
+  courseGlobalId: z.number().optional(),
+  courseSummary: GolfCourseSummarySchema.optional(),
   holePars: z.string(), // String representation of par for each hole
   startTime: z.string(), // ISO 8601 format
   strokes: z.number(),
@@ -384,7 +450,7 @@ export const GolfDrivingRangeActivitySchema = z.object({
   type: z.string(), // e.g., "DRIVING_RANGE"
 });
 
-export const GolfActivitiesResponseSchema = z.object({
+export const GolfActivitiesPageSchema = z.object({
   pageNumber: z.number(),
   rowsPerPage: z.number(),
   hasNextPage: z.boolean(),
@@ -396,7 +462,7 @@ export const GolfActivitiesResponseSchema = z.object({
 export type GolfActivityHole = z.infer<typeof GolfActivityHoleSchema>;
 export type GolfScorecardActivity = z.infer<typeof GolfScorecardActivitySchema>;
 export type GolfDrivingRangeActivity = z.infer<typeof GolfDrivingRangeActivitySchema>;
-export type GolfActivitiesResponse = z.infer<typeof GolfActivitiesResponseSchema>;
+export type GolfActivitiesPage = z.infer<typeof GolfActivitiesPageSchema>;
 
 // ============================================================================
 // Wellness Types
@@ -657,7 +723,8 @@ export interface GarminConnectClientConfig {
 export interface GarminConnectClient {
   getActivities(start?: number, limit?: number): Promise<Activity[]>;
   getActivity(id: string): Promise<Activity>;
-  getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesResponse>;
+  getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesPage>;
+  getGolfCourses(perPage?: number, locale?: string): Promise<GolfCoursesPage>;
 }
 
 // OAuth 1.0 application identity (key/secret)
