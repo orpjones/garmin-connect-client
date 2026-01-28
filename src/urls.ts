@@ -97,12 +97,7 @@ export class GarminUrls {
     return `${this.GOLF_API_BASE}/activity?user-locale=${locale}&page=${page}&per-page=${perPage}`;
   }
 
-  GOLF_COURSE_SNAPSHOTS(perPage = 10_000, locale = 'en'): string {
-    return `${this.GOLF_API_BASE}/course-snapshot/player?per-page=${perPage}&user-locale=${locale}`;
-  }
-
-  GOLF_COURSE_SNAPSHOT_DETAILS(courseSnapshotIds: number[], locale = 'en'): string {
-    const joinedIds = courseSnapshotIds.join(',');
-    return `${this.GOLF_API_BASE}/course-snapshot?course-snapshot-ids=${joinedIds}&user-locale=${locale}`;
+  GOLF_SCORECARD_DETAILS(scorecardId: number, locale = 'en'): string {
+    return `${this.GOLF_API_BASE}/scorecard/detail?scorecard-ids=${scorecardId}&skip-course-info=0&skip-stats-info=0&skip-shot-summary-info=1&user-locale=${locale}`;
   }
 }

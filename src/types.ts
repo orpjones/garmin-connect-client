@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 export enum ActivityTypeKey {
   WALKING = 'walking',
+  CASUAL_WALKING = 'casual_walking',
   RUNNING = 'running',
   CYCLING = 'cycling',
   SWIMMING = 'swimming',
@@ -329,7 +330,7 @@ export type Activity = z.infer<typeof ActivitySchema>;
 // Golf Course Types
 // ============================================================================
 
-export const GolfCourseListItemSchema = z.object({
+export const GolfCourseSnapshotListItemSchema = z.object({
   courseGlobalId: z.number(),
   courseSnapshotId: z.number(),
   name: z.string(),
@@ -340,20 +341,15 @@ export const GolfCourseListItemSchema = z.object({
   lastPlayedTime: z.number(), // Unix timestamp in seconds
 });
 
-export const GolfCoursesPageSchema = z
-  .object({
-    pageNumber: z.number(),
-    rowsPerPage: z.number(),
-    totalRows: z.number(),
-    courseSnapshots: z.array(GolfCourseListItemSchema),
-  })
-  .transform(({ courseSnapshots, ...rest }) => ({
-    ...rest,
-    rounds: courseSnapshots,
-  }));
+export const GolfCourseSnapshotsPageSchema = z.object({
+  pageNumber: z.number(),
+  rowsPerPage: z.number(),
+  totalRows: z.number(),
+  courseSnapshots: z.array(GolfCourseSnapshotListItemSchema),
+});
 
-export type GolfCourseListItem = z.infer<typeof GolfCourseListItemSchema>;
-export type GolfCoursesPage = z.infer<typeof GolfCoursesPageSchema>;
+export type GolfCourseSnapshotListItem = z.infer<typeof GolfCourseSnapshotListItemSchema>;
+export type GolfCourseSnapshotsPage = z.infer<typeof GolfCourseSnapshotsPageSchema>;
 
 export const GolfHandicapTypeSchema = z.enum(['MEN', 'WOMEN']);
 
@@ -367,7 +363,7 @@ export const GolfCourseTeeSchema = z
   })
   .passthrough();
 
-export const GolfCourseDetailSchema = z
+export const GolfCourseSnapshotSchema = z
   .object({
     courseGlobalId: z.number(),
     courseSnapshotId: z.number(),
@@ -395,7 +391,7 @@ export const GolfCourseDetailSchema = z
   })
   .passthrough();
 
-export const GolfCourseDetailsResponseSchema = z.array(GolfCourseDetailSchema);
+export const GolfCourseSnapshotsListSchema = z.array(GolfCourseSnapshotSchema);
 
 export const GolfCourseSummarySchema = z.object({
   courseGlobalId: z.number(),
@@ -409,26 +405,36 @@ export const GolfCourseSummarySchema = z.object({
 
 export type GolfHandicapType = z.infer<typeof GolfHandicapTypeSchema>;
 export type GolfCourseTee = z.infer<typeof GolfCourseTeeSchema>;
-export type GolfCourseDetail = z.infer<typeof GolfCourseDetailSchema>;
-export type GolfCourseDetailsResponse = z.infer<typeof GolfCourseDetailsResponseSchema>;
+export type GolfCourseSnapshot = z.infer<typeof GolfCourseSnapshotSchema>;
+export type GolfCourseSnapshotsList = z.infer<typeof GolfCourseSnapshotsListSchema>;
 export type GolfCourseSummary = z.infer<typeof GolfCourseSummarySchema>;
 
 // ============================================================================
 // Golf Activity Types
 // ============================================================================
 
-export const GolfActivityHoleSchema = z.object({
+// Summary holes from the activity list (lighter-weight than scorecard detail holes).
+export const GolfSummaryHoleSchema = z.object({
   number: z.number(),
   strokes: z.number().optional(),
+});
+
+// Detailed holes from scorecard detail payloads.
+export const GolfScorecardHoleEntrySchema = z.object({
+  number: z.number(),
+  strokes: z.number(),
+  penalties: z.number().optional(),
+  handicapScore: z.number(),
+  putts: z.number(),
+  fairwayShotOutcome: z.string().optional(),
+  pinPositionLat: z.number(),
+  pinPositionLon: z.number(),
 });
 
 export const GolfScorecardActivitySchema = z.object({
   id: z.number(),
   scoreType: z.string(), // e.g., "STROKE_PLAY"
   courseName: z.string(),
-  courseSnapshotId: z.number().optional(),
-  courseGlobalId: z.number().optional(),
-  courseSummary: GolfCourseSummarySchema.optional(),
   holePars: z.string(), // String representation of par for each hole
   startTime: z.string(), // ISO 8601 format
   strokes: z.number(),
@@ -436,10 +442,41 @@ export const GolfScorecardActivitySchema = z.object({
   scoreWithHandicap: z.number(),
   scoreWithoutHandicap: z.number(),
   holesCompleted: z.number(),
-  activityHoles: z.array(GolfActivityHoleSchema),
+  activityHoles: z.array(GolfSummaryHoleSchema),
   roundType: z.string(), // e.g., "ALL", "FRONT_9"
   courseCounting: z.boolean(),
 });
+
+export const GolfScorecardDetailSchema = z
+  .object({
+    id: z.number(),
+    courseGlobalId: z.number(),
+    courseSnapshotId: z.number(),
+    scoreType: z.string(),
+    roundType: z.string(),
+    startTime: z.string(), // ISO 8601 format
+    strokes: z.number(),
+    handicappedStrokes: z.number(),
+    teeBox: z.string(),
+    teeBoxRating: z.number(),
+    teeBoxSlope: z.number(),
+    handicapType: GolfHandicapTypeSchema.or(z.string()),
+    holes: z.array(GolfScorecardHoleEntrySchema),
+  })
+  .passthrough();
+
+const GolfScorecardDetailEntrySchema = z
+  .object({
+    scorecard: GolfScorecardDetailSchema,
+  })
+  .passthrough();
+
+export const GolfScorecardDetailsResponseSchema = z
+  .object({
+    scorecardDetails: z.array(GolfScorecardDetailEntrySchema),
+    courseSnapshots: z.array(GolfCourseSnapshotSchema),
+  })
+  .passthrough();
 
 export const GolfDrivingRangeActivitySchema = z.object({
   drivingRangeId: z.number(),
@@ -461,10 +498,18 @@ export const GolfActivitiesPageSchema = z.object({
   drivingRangeActivities: z.array(GolfDrivingRangeActivitySchema),
 });
 
-export type GolfActivityHole = z.infer<typeof GolfActivityHoleSchema>;
+export type GolfSummaryHole = z.infer<typeof GolfSummaryHoleSchema>;
+export type GolfScorecardHoleEntry = z.infer<typeof GolfScorecardHoleEntrySchema>;
 export type GolfScorecardActivity = z.infer<typeof GolfScorecardActivitySchema>;
+export type GolfScorecardDetail = z.infer<typeof GolfScorecardDetailSchema>;
+export type GolfScorecardDetailsResponse = z.infer<typeof GolfScorecardDetailsResponseSchema>;
 export type GolfDrivingRangeActivity = z.infer<typeof GolfDrivingRangeActivitySchema>;
 export type GolfActivitiesPage = z.infer<typeof GolfActivitiesPageSchema>;
+
+export interface GolfScorecardDetailWithSnapshot {
+  scorecard: GolfScorecardDetail;
+  courseSnapshot?: GolfCourseSnapshot;
+}
 
 // ============================================================================
 // Wellness Types
@@ -726,7 +771,7 @@ export interface GarminConnectClient {
   getActivities(start?: number, limit?: number): Promise<Activity[]>;
   getActivity(id: string): Promise<Activity>;
   getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesPage>;
-  getGolfCourses(perPage?: number, locale?: string): Promise<GolfCoursesPage>;
+  getGolfScorecardDetail(scorecardId: number, locale?: string): Promise<GolfScorecardDetailWithSnapshot>;
 }
 
 // OAuth 1.0 application identity (key/secret)

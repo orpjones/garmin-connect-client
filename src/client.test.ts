@@ -256,11 +256,41 @@ describe('GarminConnectClient', () => {
         expect(activities.length).toBeLessThanOrEqual(20);
       });
 
-      it('should retrieve golf activities', async () => {
+      it('should retrieve golf activities (rating and slope available via detail endpoint)', async () => {
         const client = await getAuthenticatedClient();
         const golfActivities = await client.getGolfActivities();
 
         expect(golfActivities).toBeDefined();
+        expect(golfActivities.scorecardActivities.length).toBeGreaterThan(0);
+
+        // Activity list does not include teeBox, teeBoxRating, or teeBoxSlope
+        // These fields are only available via getGolfScorecardDetail()
+        for (const activity of golfActivities.scorecardActivities) {
+          expect(activity.id).toBeDefined();
+          expect(activity.courseName).toBeDefined();
+          expect(activity.strokes).toBeDefined();
+          // Verify rating/slope are NOT in activity list
+          expect(activity).not.toHaveProperty('teeBoxRating');
+          expect(activity).not.toHaveProperty('teeBoxSlope');
+          expect(activity).not.toHaveProperty('teeBox');
+        }
+
+        // To get rating and slope, use the detail endpoint
+        if (golfActivities.scorecardActivities.length > 0) {
+          const firstActivity = golfActivities.scorecardActivities[0];
+          const detail = await client.getGolfScorecardDetail(firstActivity.id);
+
+          expect(detail.scorecard.teeBoxRating).toBeDefined();
+          expect(detail.scorecard.teeBoxSlope).toBeDefined();
+          expect(detail.scorecard.teeBox).toBeDefined();
+          expect(typeof detail.scorecard.teeBoxRating).toBe('number');
+          expect(typeof detail.scorecard.teeBoxSlope).toBe('number');
+          expect(detail.scorecard.teeBoxRating).toBeGreaterThan(0);
+          expect(detail.scorecard.teeBoxSlope).toBeGreaterThan(0);
+          // Typical rating range: 60-80, typical slope range: 55-155
+          expect(detail.scorecard.teeBoxRating).toBeLessThan(100);
+          expect(detail.scorecard.teeBoxSlope).toBeLessThan(200);
+        }
       });
 
       it('should support pagination with page and perPage parameters for golf activities', async () => {
@@ -290,37 +320,6 @@ describe('GarminConnectClient', () => {
         expect(golfActivities.pageNumber).toBe(1);
         // Default perPage is 20
         expect(golfActivities.rowsPerPage).toBe(20);
-      });
-
-      it('should enrich golf scorecards with course IDs when available', async () => {
-        const client = await getAuthenticatedClient();
-        const courseRounds = await client.getGolfCourses();
-        const courseByName = new Map(courseRounds.rounds.map(course => [course.name, course]));
-
-        const golfActivities = await client.getGolfActivities();
-        const matchingActivity = golfActivities.scorecardActivities.find(activity =>
-          courseByName.has(activity.courseName)
-        );
-
-        if (matchingActivity) {
-          const course = courseByName.get(matchingActivity.courseName);
-          expect(matchingActivity.courseSnapshotId).toBe(course?.courseSnapshotId);
-          expect(matchingActivity.courseGlobalId).toBe(course?.courseGlobalId);
-          if (matchingActivity.courseSummary) {
-            expect(matchingActivity.courseSummary.courseSnapshotId).toBe(course?.courseSnapshotId);
-            expect(matchingActivity.courseSummary.courseGlobalId).toBe(course?.courseGlobalId);
-            expect(matchingActivity.courseSummary.tees.length).toBeGreaterThan(0);
-          }
-        }
-      });
-
-      it('should retrieve golf course snapshots and details', async () => {
-        const client = await getAuthenticatedClient();
-        const snapshots = await client.getGolfCourses();
-
-        expect(snapshots.rounds).toBeDefined();
-
-        expect(snapshots.rounds.length).toBeGreaterThan(0);
       });
     });
   });
