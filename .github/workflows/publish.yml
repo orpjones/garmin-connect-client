@@ -5,13 +5,20 @@ on:
     tags:
       - 'v*.*.*'  # Trigger on version tags like v1.0.0
 
-permissions:
-  contents: write  # Required for GitHub releases
-  id-token: write  # Required for OIDC
-
 jobs:
+  validate:
+    uses: ./.github/workflows/validate.yml
+    with:
+      run_lint: false
+      run_format_check: false
+      run_type_check: false
+
   publish:
+    needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     
     steps:
       - name: Checkout code
@@ -39,13 +46,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run tests
-        run: npm run test:run
-        env:
-          GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
-          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
-          CI: 'true'
 
       - name: Build package
         run: npm run build
