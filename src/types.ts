@@ -17,6 +17,7 @@ export enum ActivityTypeKey {
   YOGA = 'yoga',
   STRENGTH_TRAINING = 'strength_training',
   CARDIO = 'cardio',
+  MOUNTAINEERING = 'mountaineering',
   OTHER = 'other',
 }
 
@@ -25,6 +26,7 @@ export enum EventTypeKey {
   RACE = 'race',
   WORKOUT = 'workout',
   CASUAL = 'casual',
+  RECREATION = 'recreation',
 }
 
 export enum PrivacyTypeKey {
