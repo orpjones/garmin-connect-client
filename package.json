@@ -21,7 +21,10 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky install",
     "prepublishOnly": "npm run clean && npm run build",
-    "release:patch": "npm version patch"
+    "version": "git add CHANGELOG.md",
+    "release:patch": "npm version patch",
+    "release:minor": "npm version minor",
+    "release:major": "npm version major"
   },
   "keywords": [
     "garmin",
