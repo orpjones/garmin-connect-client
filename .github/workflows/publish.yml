@@ -5,9 +5,14 @@ on:
     tags:
       - 'v*.*.*'  # Trigger on version tags like v1.0.0
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     uses: ./.github/workflows/validate.yml
+    permissions:
+      contents: read
     secrets:
       GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
       GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}

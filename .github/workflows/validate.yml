@@ -8,12 +8,11 @@ on:
       GARMIN_PASSWORD:
         required: false
 
-permissions:
-  contents: read
-
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code

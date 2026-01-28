@@ -14,6 +14,8 @@ permissions:
 jobs:
   validate:
     uses: ./.github/workflows/validate.yml
+    permissions:
+      contents: read
     secrets:
       GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
       GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
