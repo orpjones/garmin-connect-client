@@ -8,10 +8,9 @@ on:
 jobs:
   validate:
     uses: ./.github/workflows/validate.yml
-    with:
-      run_lint: false
-      run_format_check: false
-      run_type_check: false
+    secrets:
+      GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
+      GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
 
   publish:
     needs: validate

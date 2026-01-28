@@ -2,32 +2,11 @@ name: Validate
 
 on:
   workflow_call:
-    inputs:
-      run_lint:
-        description: 'Run linting checks'
+    secrets:
+      GARMIN_USERNAME:
         required: false
-        type: boolean
-        default: true
-      run_format_check:
-        description: 'Run format checking'
+      GARMIN_PASSWORD:
         required: false
-        type: boolean
-        default: true
-      run_type_check:
-        description: 'Run type checking'
-        required: false
-        type: boolean
-        default: true
-      run_tests:
-        description: 'Run tests'
-        required: false
-        type: boolean
-        default: true
-      run_build:
-        description: 'Run build'
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -50,19 +29,15 @@ jobs:
         run: npm ci
 
       - name: Run linter
-        if: inputs.run_lint
         run: npm run lint
 
       - name: Check formatting
-        if: inputs.run_format_check
         run: npm run format:check
 
       - name: Type check
-        if: inputs.run_type_check
         run: npx tsc --noEmit
 
       - name: Run tests
-        if: inputs.run_tests
         run: npm run test:run
         env:
           GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
@@ -70,6 +45,5 @@ jobs:
           CI: 'true'
 
       - name: Build package
-        if: inputs.run_build
         run: npm run build
 

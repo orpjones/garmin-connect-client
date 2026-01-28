@@ -31,8 +31,9 @@ let GARMIN_MFA_PASSWORD: string | undefined;
 const IS_CI: boolean = process.env.CI === 'true' || process.env.CI === '1';
 const shouldRunInteractiveMFATests: boolean = !IS_CI; // Interactive MFA tests require user input and should be skipped in CI
 
-// Shared authenticated MFA client - created by first test, reused by subsequent tests
+// Shared authenticated clients - created by first test, reused by subsequent tests
 let mfaClient: GarminConnectClient | undefined;
+let basicClient: GarminConnectClient | undefined;
 
 // Helper function to validate basic credentials are set
 function requireBasicCredentials(): void {
@@ -113,7 +114,7 @@ function readMfaCodeFromConsole(): Promise<string> {
   });
 }
 
-async function getAuthenticatedClient(): Promise<GarminConnectClient> {
+async function getAuthenticatedMfaClient(): Promise<GarminConnectClient> {
   if (!mfaClient) {
     const authContext = await createAuthContext({
       username: GARMIN_MFA_USERNAME!,
@@ -128,6 +129,182 @@ async function getAuthenticatedClient(): Promise<GarminConnectClient> {
     mfaClient = await create(authContext, mfaCode);
   }
   return mfaClient;
+}
+
+async function getAuthenticatedBasicClient(): Promise<GarminConnectClient> {
+  if (!basicClient) {
+    const authContext = await createAuthContext({
+      username: GARMIN_USERNAME!,
+      password: GARMIN_PASSWORD!,
+    });
+    basicClient = await create(authContext);
+  }
+  return basicClient;
+}
+
+// Test suite definitions - makes it easier to add/modify tests
+// These can be reused across different client types
+
+// Test implementation functions - extract the test logic to be reused
+// These return the test implementation functions that can be called in it() blocks
+
+function testGetActivitiesImpl(getClient: () => GarminConnectClient) {
+  return {
+    shouldRetrieveListOfActivities: async () => {
+      const client = getClient();
+      const activities = await client.getActivities();
+
+      expect(activities).toBeDefined();
+      expect(Array.isArray(activities)).toBe(true);
+      expect(activities.length).toBeGreaterThan(0);
+    },
+
+    shouldSupportPagination: async () => {
+      const client = getClient();
+      // Get first page
+      const firstPage = await client.getActivities(0, 5);
+      expect(firstPage).toBeDefined();
+      expect(Array.isArray(firstPage)).toBe(true);
+      expect(firstPage.length).toBeLessThanOrEqual(5);
+
+      // Get second page if there are more than 5 activities
+      if (firstPage.length === 5) {
+        const secondPage = await client.getActivities(5, 5);
+        expect(secondPage).toBeDefined();
+        expect(Array.isArray(secondPage)).toBe(true);
+
+        // Activities should be different
+        if (secondPage.length > 0 && firstPage.length > 0) {
+          expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
+        }
+      }
+    },
+
+    shouldUseDefaultPaginationValues: async () => {
+      const client = getClient();
+      const activities = await client.getActivities();
+
+      expect(activities).toBeDefined();
+      expect(Array.isArray(activities)).toBe(true);
+      // Default limit is 20
+      expect(activities.length).toBeLessThanOrEqual(20);
+    },
+  };
+}
+
+function testGolfActivitiesImpl(getClient: () => GarminConnectClient) {
+  return {
+    shouldRetrieveGolfActivities: async () => {
+      const client = getClient();
+      const golfActivities = await client.getGolfActivities();
+
+      expect(golfActivities).toBeDefined();
+      expect(golfActivities.scorecardActivities.length).toBeGreaterThan(0);
+
+      // Activity list does not include teeBox, teeBoxRating, or teeBoxSlope
+      // These fields are only available via getGolfScorecardDetail()
+      for (const activity of golfActivities.scorecardActivities) {
+        expect(activity.id).toBeDefined();
+        expect(activity.courseName).toBeDefined();
+        expect(activity.strokes).toBeDefined();
+        // Verify rating/slope are NOT in activity list
+        expect(activity).not.toHaveProperty('teeBoxRating');
+        expect(activity).not.toHaveProperty('teeBoxSlope');
+        expect(activity).not.toHaveProperty('teeBox');
+      }
+
+      // To get rating and slope, use the detail endpoint
+      if (golfActivities.scorecardActivities.length > 0) {
+        const firstActivity = golfActivities.scorecardActivities[0];
+        const detail = await client.getGolfScorecardDetail(firstActivity.id);
+
+        expect(detail.scorecard.teeBoxRating).toBeDefined();
+        expect(detail.scorecard.teeBoxSlope).toBeDefined();
+        expect(detail.scorecard.teeBox).toBeDefined();
+        expect(typeof detail.scorecard.teeBoxRating).toBe('number');
+        expect(typeof detail.scorecard.teeBoxSlope).toBe('number');
+        expect(detail.scorecard.teeBoxRating).toBeGreaterThan(0);
+        expect(detail.scorecard.teeBoxSlope).toBeGreaterThan(0);
+        // Typical rating range: 60-80, typical slope range: 55-155
+        expect(detail.scorecard.teeBoxRating).toBeLessThan(100);
+        expect(detail.scorecard.teeBoxSlope).toBeLessThan(200);
+      }
+    },
+
+    shouldSupportPaginationForGolfActivities: async () => {
+      const client = getClient();
+      // Get first page
+      const firstPage = await client.getGolfActivities(1, 5);
+      expect(firstPage.pageNumber).toBe(1);
+      expect(firstPage.rowsPerPage).toBe(5);
+
+      // Get second page if there are more activities
+      if (firstPage.hasNextPage) {
+        const secondPage = await client.getGolfActivities(2, 5);
+        expect(secondPage.pageNumber).toBe(2);
+        expect(secondPage.rowsPerPage).toBe(5);
+
+        // Activities should be different if both pages have data
+        if (secondPage.scorecardActivities.length > 0 && firstPage.scorecardActivities.length > 0) {
+          expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
+        }
+      }
+    },
+
+    shouldUseDefaultPaginationValuesForGolfActivities: async () => {
+      const client = getClient();
+      const golfActivities = await client.getGolfActivities();
+
+      expect(golfActivities.pageNumber).toBe(1);
+      // Default perPage is 20
+      expect(golfActivities.rowsPerPage).toBe(20);
+    },
+  };
+}
+
+function testRecentGolfRoundsImpl(getClient: () => GarminConnectClient) {
+  return {
+    shouldRetrieveRecentGolfRounds: async () => {
+      const client = getClient();
+      const roundsPage = await client.getRecentGolfRounds(1, 5);
+
+      expect(roundsPage.rounds).toBeDefined();
+      expect(Array.isArray(roundsPage.rounds)).toBe(true);
+
+      // Key value: getRecentGolfRounds combines data that would otherwise require multiple API calls
+      if (roundsPage.rounds.length > 0) {
+        const round = roundsPage.rounds[0];
+        // Verify convenience fields are present (rating/slope/par/tees require detail endpoint otherwise)
+        expect(round.courseName).toBeDefined();
+        expect(round.courseRating).toBeDefined();
+        expect(round.courseSlope).toBeDefined();
+        expect(round.coursePar).toBeDefined();
+        expect(round.tees).toBeDefined();
+        expect(round.perHoleScore).toBeDefined();
+        expect(Array.isArray(round.perHoleScore)).toBe(true);
+      }
+    },
+
+    shouldSupportPaginationForRecentGolfRounds: async () => {
+      const client = getClient();
+      // Get first page
+      const firstPage = await client.getRecentGolfRounds(1, 5);
+      expect(firstPage.pageNumber).toBe(1);
+      expect(firstPage.rowsPerPage).toBe(5);
+
+      // Get second page if there are more rounds
+      if (firstPage.hasNextPage) {
+        const secondPage = await client.getRecentGolfRounds(2, 5);
+        expect(secondPage.pageNumber).toBe(2);
+        expect(secondPage.rowsPerPage).toBe(5);
+
+        // Rounds should be different if both pages have data
+        if (secondPage.rounds.length > 0 && firstPage.rounds.length > 0) {
+          expect(firstPage.rounds[0].scorecardId).not.toBe(secondPage.rounds[0].scorecardId);
+        }
+      }
+    },
+  };
 }
 
 describe('GarminConnectClient', () => {
@@ -146,8 +323,9 @@ describe('GarminConnectClient', () => {
     GARMIN_MFA_USERNAME = process.env.GARMIN_MFA_USERNAME;
     GARMIN_MFA_PASSWORD = process.env.GARMIN_MFA_PASSWORD;
 
-    // Reset shared MFA client at the start of each test run
+    // Reset shared clients at the start of each test run
     mfaClient = undefined;
+    basicClient = undefined;
   });
 
   describe('create and authenticate (Basic Login - No MFA)', () => {
@@ -191,6 +369,56 @@ describe('GarminConnectClient', () => {
         })
       ).rejects.toThrow(InvalidCredentialsError);
     });
+
+    // Run tests with basic client
+    describe('with authenticated basic client', () => {
+      beforeAll(async () => {
+        await getAuthenticatedBasicClient();
+      });
+
+      describe('getActivities', () => {
+        const tests = testGetActivitiesImpl(() => basicClient!);
+
+        it('should retrieve a list of activities', tests.shouldRetrieveListOfActivities);
+
+        it('should support pagination with start and limit parameters', tests.shouldSupportPagination);
+
+        it('should use default pagination values when not specified', tests.shouldUseDefaultPaginationValues);
+      });
+
+      describe('golf activities', () => {
+        const tests = testGolfActivitiesImpl(() => basicClient!);
+
+        it(
+          'should retrieve golf activities (rating and slope available via detail endpoint)',
+          tests.shouldRetrieveGolfActivities
+        );
+
+        it(
+          'should support pagination with page and perPage parameters for golf activities',
+          tests.shouldSupportPaginationForGolfActivities
+        );
+
+        it(
+          'should use default pagination values when not specified for golf activities',
+          tests.shouldUseDefaultPaginationValuesForGolfActivities
+        );
+      });
+
+      describe('recent golf rounds', () => {
+        const tests = testRecentGolfRoundsImpl(() => basicClient!);
+
+        it(
+          'should retrieve recent golf rounds with combined data from activities and detail endpoints',
+          tests.shouldRetrieveRecentGolfRounds
+        );
+
+        it(
+          'should support pagination with page and perPage parameters for recent golf rounds',
+          tests.shouldSupportPaginationForRecentGolfRounds
+        );
+      });
+    });
   });
 
   describe.skipIf(!shouldRunInteractiveMFATests)('create and authenticate (MFA Login)', () => {
@@ -199,7 +427,7 @@ describe('GarminConnectClient', () => {
     });
 
     it('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
-      await getAuthenticatedClient();
+      await getAuthenticatedMfaClient();
       expect(mfaClient).toBeDefined();
     }); // 10 minute timeout to allow for MFA input
 
@@ -214,153 +442,53 @@ describe('GarminConnectClient', () => {
       }
     });
 
-    // These tests depend on mfaClient being initialized by the first test above
-    describe('getActivities', () => {
-      it('should retrieve a list of activities', async () => {
-        const client = await getAuthenticatedClient();
-        const activities = await client.getActivities();
-
-        expect(activities).toBeDefined();
-        expect(Array.isArray(activities)).toBe(true);
-        expect(activities.length).toBeGreaterThan(0);
+    // Run tests with MFA client
+    describe('with authenticated MFA client', () => {
+      beforeAll(async () => {
+        await getAuthenticatedMfaClient();
       });
 
-      it('should support pagination with start and limit parameters', async () => {
-        const client = await getAuthenticatedClient();
-        // Get first page
-        const firstPage = await client.getActivities(0, 5);
-        expect(firstPage).toBeDefined();
-        expect(Array.isArray(firstPage)).toBe(true);
-        expect(firstPage.length).toBeLessThanOrEqual(5);
+      describe('getActivities', () => {
+        const tests = testGetActivitiesImpl(() => mfaClient!);
 
-        // Get second page if there are more than 5 activities
-        if (firstPage.length === 5) {
-          const secondPage = await client.getActivities(5, 5);
-          expect(secondPage).toBeDefined();
-          expect(Array.isArray(secondPage)).toBe(true);
+        it('should retrieve a list of activities', tests.shouldRetrieveListOfActivities);
 
-          // Activities should be different
-          if (secondPage.length > 0 && firstPage.length > 0) {
-            expect(firstPage[0].activityId).not.toBe(secondPage[0].activityId);
-          }
-        }
+        it('should support pagination with start and limit parameters', tests.shouldSupportPagination);
+
+        it('should use default pagination values when not specified', tests.shouldUseDefaultPaginationValues);
       });
 
-      it('should use default pagination values when not specified', async () => {
-        const client = await getAuthenticatedClient();
-        const activities = await client.getActivities();
+      describe('golf activities', () => {
+        const tests = testGolfActivitiesImpl(() => mfaClient!);
 
-        expect(activities).toBeDefined();
-        expect(Array.isArray(activities)).toBe(true);
-        // Default limit is 20
-        expect(activities.length).toBeLessThanOrEqual(20);
+        it(
+          'should retrieve golf activities (rating and slope available via detail endpoint)',
+          tests.shouldRetrieveGolfActivities
+        );
+
+        it(
+          'should support pagination with page and perPage parameters for golf activities',
+          tests.shouldSupportPaginationForGolfActivities
+        );
+
+        it(
+          'should use default pagination values when not specified for golf activities',
+          tests.shouldUseDefaultPaginationValuesForGolfActivities
+        );
       });
 
-      it('should retrieve golf activities (rating and slope available via detail endpoint)', async () => {
-        const client = await getAuthenticatedClient();
-        const golfActivities = await client.getGolfActivities();
+      describe('recent golf rounds', () => {
+        const tests = testRecentGolfRoundsImpl(() => mfaClient!);
 
-        expect(golfActivities).toBeDefined();
-        expect(golfActivities.scorecardActivities.length).toBeGreaterThan(0);
+        it(
+          'should retrieve recent golf rounds with combined data from activities and detail endpoints',
+          tests.shouldRetrieveRecentGolfRounds
+        );
 
-        // Activity list does not include teeBox, teeBoxRating, or teeBoxSlope
-        // These fields are only available via getGolfScorecardDetail()
-        for (const activity of golfActivities.scorecardActivities) {
-          expect(activity.id).toBeDefined();
-          expect(activity.courseName).toBeDefined();
-          expect(activity.strokes).toBeDefined();
-          // Verify rating/slope are NOT in activity list
-          expect(activity).not.toHaveProperty('teeBoxRating');
-          expect(activity).not.toHaveProperty('teeBoxSlope');
-          expect(activity).not.toHaveProperty('teeBox');
-        }
-
-        // To get rating and slope, use the detail endpoint
-        if (golfActivities.scorecardActivities.length > 0) {
-          const firstActivity = golfActivities.scorecardActivities[0];
-          const detail = await client.getGolfScorecardDetail(firstActivity.id);
-
-          expect(detail.scorecard.teeBoxRating).toBeDefined();
-          expect(detail.scorecard.teeBoxSlope).toBeDefined();
-          expect(detail.scorecard.teeBox).toBeDefined();
-          expect(typeof detail.scorecard.teeBoxRating).toBe('number');
-          expect(typeof detail.scorecard.teeBoxSlope).toBe('number');
-          expect(detail.scorecard.teeBoxRating).toBeGreaterThan(0);
-          expect(detail.scorecard.teeBoxSlope).toBeGreaterThan(0);
-          // Typical rating range: 60-80, typical slope range: 55-155
-          expect(detail.scorecard.teeBoxRating).toBeLessThan(100);
-          expect(detail.scorecard.teeBoxSlope).toBeLessThan(200);
-        }
-      });
-
-      it('should support pagination with page and perPage parameters for golf activities', async () => {
-        const client = await getAuthenticatedClient();
-        // Get first page
-        const firstPage = await client.getGolfActivities(1, 5);
-        expect(firstPage.pageNumber).toBe(1);
-        expect(firstPage.rowsPerPage).toBe(5);
-
-        // Get second page if there are more activities
-        if (firstPage.hasNextPage) {
-          const secondPage = await client.getGolfActivities(2, 5);
-          expect(secondPage.pageNumber).toBe(2);
-          expect(secondPage.rowsPerPage).toBe(5);
-
-          // Activities should be different if both pages have data
-          if (secondPage.scorecardActivities.length > 0 && firstPage.scorecardActivities.length > 0) {
-            expect(firstPage.scorecardActivities[0].id).not.toBe(secondPage.scorecardActivities[0].id);
-          }
-        }
-      });
-
-      it('should use default pagination values when not specified for golf activities', async () => {
-        const client = await getAuthenticatedClient();
-        const golfActivities = await client.getGolfActivities();
-
-        expect(golfActivities.pageNumber).toBe(1);
-        // Default perPage is 20
-        expect(golfActivities.rowsPerPage).toBe(20);
-      });
-
-      it('should retrieve recent golf rounds with combined data from activities and detail endpoints', async () => {
-        const client = await getAuthenticatedClient();
-        const roundsPage = await client.getRecentGolfRounds(1, 5);
-
-        expect(roundsPage.rounds).toBeDefined();
-        expect(Array.isArray(roundsPage.rounds)).toBe(true);
-
-        // Key value: getRecentGolfRounds combines data that would otherwise require multiple API calls
-        if (roundsPage.rounds.length > 0) {
-          const round = roundsPage.rounds[0];
-          // Verify convenience fields are present (rating/slope/par/tees require detail endpoint otherwise)
-          expect(round.courseName).toBeDefined();
-          expect(round.courseRating).toBeDefined();
-          expect(round.courseSlope).toBeDefined();
-          expect(round.coursePar).toBeDefined();
-          expect(round.tees).toBeDefined();
-          expect(round.perHoleScore).toBeDefined();
-          expect(Array.isArray(round.perHoleScore)).toBe(true);
-        }
-      });
-
-      it('should support pagination with page and perPage parameters for recent golf rounds', async () => {
-        const client = await getAuthenticatedClient();
-        // Get first page
-        const firstPage = await client.getRecentGolfRounds(1, 5);
-        expect(firstPage.pageNumber).toBe(1);
-        expect(firstPage.rowsPerPage).toBe(5);
-
-        // Get second page if there are more rounds
-        if (firstPage.hasNextPage) {
-          const secondPage = await client.getRecentGolfRounds(2, 5);
-          expect(secondPage.pageNumber).toBe(2);
-          expect(secondPage.rowsPerPage).toBe(5);
-
-          // Rounds should be different if both pages have data
-          if (secondPage.rounds.length > 0 && firstPage.rounds.length > 0) {
-            expect(firstPage.rounds[0].scorecardId).not.toBe(secondPage.rounds[0].scorecardId);
-          }
-        }
+        it(
+          'should support pagination with page and perPage parameters for recent golf rounds',
+          tests.shouldSupportPaginationForRecentGolfRounds
+        );
       });
     });
   });

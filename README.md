@@ -142,28 +142,20 @@ if (detail.courseSnapshot) {
 
 ## Contributing
 
-### Setup
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute to this project.
+
+### Quick Start
 
 ```bash
 npm install
-```
-
-### Build
-
-```bash
 npm run build
 ```
 
-### Watch Mode
+### Development Commands
 
 ```bash
-npm run watch
-```
-
-### Clean
-
-```bash
-npm run clean
+npm run watch   # Watch mode for development
+npm run clean   # Clean build artifacts
 ```
 
 ## Testing

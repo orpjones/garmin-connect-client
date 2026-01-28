@@ -10,6 +10,7 @@ export enum ActivityTypeKey {
   WALKING = 'walking',
   CASUAL_WALKING = 'casual_walking',
   RUNNING = 'running',
+  INDOOR_RUNNING = 'indoor_running',
   CYCLING = 'cycling',
   SWIMMING = 'swimming',
   GOLF = 'golf',
@@ -24,6 +25,7 @@ export enum ActivityTypeKey {
 
 export enum EventTypeKey {
   UNCATEGORIZED = 'uncategorized',
+  FITNESS = 'fitness',
   RACE = 'race',
   WORKOUT = 'workout',
   CASUAL = 'casual',
