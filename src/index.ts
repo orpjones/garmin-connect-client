@@ -23,6 +23,8 @@ export type {
   GolfScorecardDetailsResponse,
   GolfScorecardDetailWithSnapshot,
   GolfScorecardActivity,
+  GolfRound,
+  GolfRoundsPage,
   GarminConnectClient,
   GarminConnectClientConfig,
   HeartRate,

@@ -511,6 +511,31 @@ export interface GolfScorecardDetailWithSnapshot {
   courseSnapshot?: GolfCourseSnapshot;
 }
 
+// Convenience type for a golf round with all relevant details
+export interface GolfRound {
+  scorecardId: number;
+  courseName: string;
+  courseRating: number;
+  courseSlope: number;
+  coursePar: number;
+  holesPlayed: number;
+  totalScore: number;
+  tees: string;
+  distance?: number; // Distance in meters, if available
+  perHoleScore: Array<{
+    holeNumber: number;
+    strokes: number;
+  }>;
+}
+
+// Paginated response for golf rounds
+export interface GolfRoundsPage {
+  pageNumber: number;
+  rowsPerPage: number;
+  hasNextPage: boolean;
+  rounds: GolfRound[];
+}
+
 // ============================================================================
 // Wellness Types
 // ============================================================================
@@ -772,6 +797,7 @@ export interface GarminConnectClient {
   getActivity(id: string): Promise<Activity>;
   getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesPage>;
   getGolfScorecardDetail(scorecardId: number, locale?: string): Promise<GolfScorecardDetailWithSnapshot>;
+  getRecentGolfRounds(page?: number, perPage?: number, locale?: string): Promise<GolfRoundsPage>;
 }
 
 // OAuth 1.0 application identity (key/secret)

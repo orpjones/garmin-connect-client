@@ -4,7 +4,14 @@ import { AuthContext } from './auth-context';
 import { AuthenticationService } from './authentication-service';
 import { AuthenticationContextError, MfaCodeError } from './errors';
 import { HttpClient } from './http-client';
-import type { Activity, GarminConnectClient, GolfActivitiesPage, GolfScorecardDetailWithSnapshot } from './types';
+import type {
+  Activity,
+  GarminConnectClient,
+  GolfActivitiesPage,
+  GolfScorecardDetailWithSnapshot,
+  GolfRound,
+  GolfRoundsPage,
+} from './types';
 import { ActivitySchema, GolfActivitiesPageSchema, GolfScorecardDetailsResponseSchema } from './types';
 import { GarminUrls } from './urls';
 
@@ -92,6 +99,54 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     return {
       scorecard: detail.scorecard,
       courseSnapshot: snapshot,
+    };
+  }
+
+  async getRecentGolfRounds(page = 1, perPage = 20, locale = 'en'): Promise<GolfRoundsPage> {
+    // Fetch the activities page
+    const activitiesPage = await this.getGolfActivities(page, perPage, locale);
+
+    // Fetch detailed scorecard information for each activity
+    const rounds: GolfRound[] = await Promise.all(
+      activitiesPage.scorecardActivities.map(async activity => {
+        const detail = await this.getGolfScorecardDetail(activity.id, locale);
+
+        // Extract course par from snapshot, fallback to calculating from holePars string
+        let coursePar = detail.courseSnapshot?.roundPar;
+        if (!coursePar && detail.courseSnapshot?.holePars) {
+          // Calculate par from holePars string (e.g., "454344354445353434")
+          coursePar = [...detail.courseSnapshot.holePars]
+            .map(par => Number.parseInt(par, 10))
+            .reduce((sum, par) => sum + par, 0);
+        }
+
+        // Extract distance if available from course snapshot
+        // Note: Distance might not always be available in the API response
+        const distance = undefined; // Could be calculated from hole distances if available
+
+        return {
+          scorecardId: activity.id,
+          courseName: activity.courseName,
+          courseRating: detail.scorecard.teeBoxRating,
+          courseSlope: detail.scorecard.teeBoxSlope,
+          coursePar: coursePar ?? 0, // Default to 0 if not available
+          holesPlayed: activity.holesCompleted,
+          totalScore: activity.strokes,
+          tees: detail.scorecard.teeBox,
+          distance,
+          perHoleScore: detail.scorecard.holes.map(hole => ({
+            holeNumber: hole.number,
+            strokes: hole.strokes,
+          })),
+        };
+      })
+    );
+
+    return {
+      pageNumber: activitiesPage.pageNumber,
+      rowsPerPage: activitiesPage.rowsPerPage,
+      hasNextPage: activitiesPage.hasNextPage,
+      rounds,
     };
   }
 }
