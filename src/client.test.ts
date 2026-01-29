@@ -262,16 +262,16 @@ function testGolfActivitiesImpl(getClient: () => GarminConnectClient) {
   };
 }
 
-function testRecentGolfRoundsImpl(getClient: () => GarminConnectClient) {
+function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
   return {
-    shouldRetrieveRecentGolfRounds: async () => {
+    shouldRetrieveGolfRounds: async () => {
       const client = getClient();
-      const roundsPage = await client.getRecentGolfRounds(1, 5);
+      const roundsPage = await client.getGolfRounds(1, 5);
 
       expect(roundsPage.rounds).toBeDefined();
       expect(Array.isArray(roundsPage.rounds)).toBe(true);
 
-      // Key value: getRecentGolfRounds combines data that would otherwise require multiple API calls
+      // Key value: getGolfRounds combines data that would otherwise require multiple API calls
       if (roundsPage.rounds.length > 0) {
         const round = roundsPage.rounds[0];
         // Verify convenience fields are present (rating/slope/par/tees require detail endpoint otherwise)
@@ -280,21 +280,23 @@ function testRecentGolfRoundsImpl(getClient: () => GarminConnectClient) {
         expect(round.courseSlope).toBeDefined();
         expect(round.coursePar).toBeDefined();
         expect(round.tees).toBeDefined();
+        expect(round.startTime).toBeDefined();
+        expect(typeof round.startTime).toBe('string');
         expect(round.perHoleScore).toBeDefined();
         expect(Array.isArray(round.perHoleScore)).toBe(true);
       }
     },
 
-    shouldSupportPaginationForRecentGolfRounds: async () => {
+    shouldSupportPaginationForGolfRounds: async () => {
       const client = getClient();
       // Get first page
-      const firstPage = await client.getRecentGolfRounds(1, 5);
+      const firstPage = await client.getGolfRounds(1, 5);
       expect(firstPage.pageNumber).toBe(1);
       expect(firstPage.rowsPerPage).toBe(5);
 
       // Get second page if there are more rounds
       if (firstPage.hasNextPage) {
-        const secondPage = await client.getRecentGolfRounds(2, 5);
+        const secondPage = await client.getGolfRounds(2, 5);
         expect(secondPage.pageNumber).toBe(2);
         expect(secondPage.rowsPerPage).toBe(5);
 
@@ -405,17 +407,17 @@ describe('GarminConnectClient', () => {
         );
       });
 
-      describe('recent golf rounds', () => {
-        const tests = testRecentGolfRoundsImpl(() => basicClient!);
+      describe('golf rounds', () => {
+        const tests = testGolfRoundsImpl(() => basicClient!);
 
         it(
-          'should retrieve recent golf rounds with combined data from activities and detail endpoints',
-          tests.shouldRetrieveRecentGolfRounds
+          'should retrieve golf rounds with combined data from activities and detail endpoints',
+          tests.shouldRetrieveGolfRounds
         );
 
         it(
-          'should support pagination with page and perPage parameters for recent golf rounds',
-          tests.shouldSupportPaginationForRecentGolfRounds
+          'should support pagination with page and perPage parameters for golf rounds',
+          tests.shouldSupportPaginationForGolfRounds
         );
       });
     });
@@ -477,17 +479,17 @@ describe('GarminConnectClient', () => {
         );
       });
 
-      describe('recent golf rounds', () => {
-        const tests = testRecentGolfRoundsImpl(() => mfaClient!);
+      describe('golf rounds', () => {
+        const tests = testGolfRoundsImpl(() => mfaClient!);
 
         it(
-          'should retrieve recent golf rounds with combined data from activities and detail endpoints',
-          tests.shouldRetrieveRecentGolfRounds
+          'should retrieve golf rounds with combined data from activities and detail endpoints',
+          tests.shouldRetrieveGolfRounds
         );
 
         it(
-          'should support pagination with page and perPage parameters for recent golf rounds',
-          tests.shouldSupportPaginationForRecentGolfRounds
+          'should support pagination with page and perPage parameters for golf rounds',
+          tests.shouldSupportPaginationForGolfRounds
         );
       });
     });
@@ -512,10 +514,10 @@ describe('GarminConnectClient', () => {
       await expect(unauthenticatedClient.getGolfActivities()).rejects.toThrow(NotAuthenticatedError);
     });
 
-    it('should throw NotAuthenticatedError when calling getRecentGolfRounds without authentication', async () => {
+    it('should throw NotAuthenticatedError when calling getGolfRounds without authentication', async () => {
       const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated();
 
-      await expect(unauthenticatedClient.getRecentGolfRounds()).rejects.toThrow(NotAuthenticatedError);
+      await expect(unauthenticatedClient.getGolfRounds()).rejects.toThrow(NotAuthenticatedError);
     });
   });
 });

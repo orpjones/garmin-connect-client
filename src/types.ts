@@ -679,6 +679,7 @@ export interface GolfRound {
   totalScore: number;
   tees: string;
   distance?: number; // Distance in meters, if available
+  startTime: string; // ISO 8601 format
   perHoleScore: Array<{
     holeNumber: number;
     strokes: number;
@@ -954,7 +955,7 @@ export interface GarminConnectClient {
   getActivity(id: string): Promise<Activity>;
   getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesPage>;
   getGolfScorecardDetail(scorecardId: number, locale?: string): Promise<GolfScorecardDetailWithSnapshot>;
-  getRecentGolfRounds(page?: number, perPage?: number, locale?: string): Promise<GolfRoundsPage>;
+  getGolfRounds(page?: number, perPage?: number, locale?: string): Promise<GolfRoundsPage>;
 }
 
 // OAuth 1.0 application identity (key/secret)

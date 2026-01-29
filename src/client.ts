@@ -102,7 +102,7 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     };
   }
 
-  async getRecentGolfRounds(page = 1, perPage = 20, locale = 'en'): Promise<GolfRoundsPage> {
+  async getGolfRounds(page = 1, perPage = 20, locale = 'en'): Promise<GolfRoundsPage> {
     // Fetch the activities page
     const activitiesPage = await this.getGolfActivities(page, perPage, locale);
 
@@ -134,6 +134,7 @@ export class GarminConnectClientImpl implements GarminConnectClient {
           totalScore: activity.strokes,
           tees: detail.scorecard.teeBox,
           distance,
+          startTime: detail.scorecard.startTime,
           perHoleScore: detail.scorecard.holes.map(hole => ({
             holeNumber: hole.number,
             strokes: hole.strokes,

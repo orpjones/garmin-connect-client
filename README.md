@@ -140,6 +140,48 @@ if (detail.courseSnapshot) {
 }
 ```
 
+### 5) Get golf rounds with combined data (convenience method)
+
+`getGolfRounds()` is a convenience method that combines `getGolfActivities()` and `getGolfScorecardDetail()` to provide a single, enriched dataset. Instead of manually fetching activities and then scorecard details for each round, this method does both automatically.
+
+**When to use `getGolfRounds()`:**
+- You need combined data (course rating, slope, par, tee box, hole-by-hole scores, start time) in one call
+- You want to avoid making multiple API calls per round
+- You're building a round history or statistics view
+
+**When to use `getGolfActivities()` + `getGolfScorecardDetail()`:**
+- You only need summary data (course name, total strokes, holes completed)
+- You want to fetch details selectively (e.g., only for specific rounds)
+- You need more control over the data fetching process
+
+```typescript
+// Convenience method: automatically combines activities and scorecard details
+const roundsPage = await client.getGolfRounds(1, 20, 'en');
+
+for (const round of roundsPage.rounds) {
+  console.log({
+    courseName: round.courseName,
+    startTime: round.startTime, // ISO 8601 timestamp
+    totalScore: round.totalScore,
+    courseRating: round.courseRating,
+    courseSlope: round.courseSlope,
+    coursePar: round.coursePar,
+    tees: round.tees,
+    holesPlayed: round.holesPlayed,
+    perHoleScore: round.perHoleScore, // Array of { holeNumber, strokes }
+  });
+}
+
+// Equivalent manual approach (more API calls):
+const activitiesPage = await client.getGolfActivities(1, 20, 'en');
+const rounds = await Promise.all(
+  activitiesPage.scorecardActivities.map(async (activity) => {
+    const detail = await client.getGolfScorecardDetail(activity.id);
+    // Manually combine data from activity and detail...
+  })
+);
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute to this project.
