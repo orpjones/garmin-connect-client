@@ -57,6 +57,39 @@ Integration tests that require Garmin Connect credentials are **not run** on PRs
 2. At least one approval is required before merging
 3. PRs should be kept up to date with `main` branch
 
+## Publishing a New Version
+
+This project uses a tag-based publishing workflow. To publish a new version:
+
+1. **Update CHANGELOG.md** with a new entry for the version:
+   ```markdown
+   ## [1.0.2] - 2026-01-29
+   
+   ### Added
+   - New feature description
+   ```
+
+2. **Commit your changes**:
+   ```bash
+   git add .
+   git commit -m "feat: add new feature"
+   ```
+
+3. **Create and push a version tag**:
+   ```bash
+   git tag v1.0.2
+   git push && git push --tags
+   ```
+
+4. **CI will automatically**:
+   - Validate that CHANGELOG.md has an entry for the version
+   - Update `package.json` version from the tag
+   - Run all validation checks (lint, format, type-check, tests, build)
+   - Publish to npm
+   - Create a GitHub Release
+
+**Note**: The tag version must match the version in the CHANGELOG entry (e.g., tag `v1.0.2` requires `## [1.0.2]` in CHANGELOG.md).
+
 ## Questions?
 
 Feel free to open an issue if you have questions or need help!
