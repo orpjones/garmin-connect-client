@@ -1,0 +1,6 @@
+export enum TrainingFeedback {
+  NO_CHANGE = 'NO_CHANGE',
+  DAILY_ACTIVITY = 'DAILY_ACTIVITY',
+  HIGH_ACWR = 'HIGH_ACWR',
+  TODAYS_LOAD = 'TODAYS_LOAD',
+}

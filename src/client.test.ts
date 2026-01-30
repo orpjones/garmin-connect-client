@@ -14,6 +14,7 @@ import * as os from 'node:os';
 import path from 'node:path';
 
 import { config } from 'dotenv';
+import { DateTime } from 'luxon';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { GarminConnectClientImpl } from './client';
@@ -309,6 +310,28 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
   };
 }
 
+function testGetDailySleepData(getClient: () => GarminConnectClient) {
+  return {
+    shouldRetrieveDailySleepData: async () => {
+      const client = getClient();
+      const sleepData = await client.sleep.getDailySleepData();
+      expect(sleepData).toBeDefined();
+    },
+  };
+}
+
+function testGetSleepStats(getClient: () => GarminConnectClient) {
+  return {
+    shouldRetrieveSleepStats: async () => {
+      const client = getClient();
+      const fromDate = DateTime.utc().minus({ days: 7 });
+      const toDate = DateTime.utc();
+      const sleepStats = await client.sleep.getSleepStats(fromDate, toDate);
+      expect(sleepStats).toBeDefined();
+    },
+  };
+}
+
 describe('GarminConnectClient', () => {
   beforeAll(() => {
     // Load .env file from project root
@@ -420,6 +443,18 @@ describe('GarminConnectClient', () => {
           tests.shouldSupportPaginationForGolfRounds
         );
       });
+
+      describe('sleep', () => {
+        describe('getDailySleepData', () => {
+          const tests = testGetDailySleepData(() => basicClient!);
+          it('should retrieve daily sleep data', tests.shouldRetrieveDailySleepData);
+        });
+
+        describe('getSleepStats', () => {
+          const tests = testGetSleepStats(() => basicClient!);
+          it('should retrieve sleep stats', tests.shouldRetrieveSleepStats);
+        });
+      });
     });
   });
 
@@ -518,6 +553,22 @@ describe('GarminConnectClient', () => {
       const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated();
 
       await expect(unauthenticatedClient.getGolfRounds()).rejects.toThrow(NotAuthenticatedError);
+    });
+
+    describe('sleep', () => {
+      it('should throw NotAuthenticatedError when calling getDailySleepData without authentication', async () => {
+        const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated();
+
+        await expect(unauthenticatedClient.sleep.getDailySleepData()).rejects.toThrow(NotAuthenticatedError);
+      });
+
+      it('should throw NotAuthenticatedError when calling getSleepStats without authentication', async () => {
+        const unauthenticatedClient = GarminConnectClientImpl.createUnauthenticated();
+
+        await expect(
+          unauthenticatedClient.sleep.getSleepStats(DateTime.now().minus({ days: 7 }), DateTime.now())
+        ).rejects.toThrow(NotAuthenticatedError);
+      });
     });
   });
 });
