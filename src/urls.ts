@@ -92,11 +92,6 @@ export class GarminUrls {
     return `${this.CONNECT_API}/activitylist-service/activities/${activityId}`;
   }
 
-  // Sleep service
-  DAILY_SLEEP(date: string, nonSleepBufferMinutes = 60): string {
-    return `${this.CONNECT_API}/sleep-service/sleep/dailySleepData?date=${date}&nonSleepBufferMinutes=${nonSleepBufferMinutes}`;
-  }
-
   // Golf API methods
   GOLF_ACTIVITIES(page = 1, perPage = 20, locale = 'en'): string {
     return `${this.GOLF_API_BASE}/activity?user-locale=${locale}&page=${page}&per-page=${perPage}`;
