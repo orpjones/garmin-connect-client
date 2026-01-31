@@ -527,6 +527,18 @@ describe('GarminConnectClient', () => {
           tests.shouldSupportPaginationForGolfRounds
         );
       });
+
+      describe('sleep', () => {
+        describe('getDailySleepData', () => {
+          const tests = testGetDailySleepData(() => basicClient!);
+          it('should retrieve daily sleep data', tests.shouldRetrieveDailySleepData);
+        });
+
+        describe('getSleepStats', () => {
+          const tests = testGetSleepStats(() => basicClient!);
+          it('should retrieve sleep stats', tests.shouldRetrieveSleepStats);
+        });
+      });
     });
   });
 
