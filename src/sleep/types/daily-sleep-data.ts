@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
+import { HrvStatus } from '../../types';
+
 import { AgeGroup } from './age-group';
 import { BreathingDisruptionSchema } from './breathing-disruption';
 import { BreathingDisruptionSeverity } from './breathing-disruption-severity';
-import { HrvStatus } from './hrv-status';
 import { MomentValueSchema } from './moment-value';
 import { QualifierKey } from './qualifier-key';
 import { SleepNeedSchema } from './sleep-need';

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { HrvStatus } from './hrv-status';
+import { HrvStatus } from '../../types';
+
 import { SleepScoreQuality } from './sleep-score-quality';
 
 export const SleepStatsIndividualSchema = z.object({
