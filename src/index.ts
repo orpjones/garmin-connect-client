@@ -126,6 +126,9 @@ export {
   OAuthTokenError,
 } from './errors';
 
+// Sleep service
+export * from './sleep';
+
 import { AuthContext } from './auth-context';
 import { AuthenticationService, AuthenticationSuccess } from './authentication-service';
 import { GarminConnectClientImpl } from './client';
