@@ -557,7 +557,6 @@ export const GolfCourseSummarySchema = z.object({
   par: z.number(),
   holeCount: z.number(),
   tees: z.array(GolfCourseTeeSchema),
-  distanceMeters: z.number().optional(),
 });
 
 export type GolfHandicapType = z.infer<typeof GolfHandicapTypeSchema>;
@@ -681,7 +680,6 @@ export interface GolfRound {
   holesPlayed: number;
   totalScore: number;
   tees?: string;
-  distance?: number; // Distance in meters, if available
   startTime: string; // ISO 8601 format
   perHoleScore: Array<{
     holeNumber: number;
