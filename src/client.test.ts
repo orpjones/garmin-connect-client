@@ -296,9 +296,9 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
 
       // Get second page if there are more rounds
       if (firstPage.hasNextPage) {
-        const secondPage = await client.getGolfRounds(2, 5);
+        const secondPage = await client.getGolfRounds(2, 1000);
         expect(secondPage.pageNumber).toBe(2);
-        expect(secondPage.rowsPerPage).toBe(5);
+        expect(secondPage.rowsPerPage).toBe(1000);
 
         // Rounds should be different if both pages have data
         if (secondPage.rounds.length > 0 && firstPage.rounds.length > 0) {

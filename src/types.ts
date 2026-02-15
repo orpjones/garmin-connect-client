@@ -595,8 +595,8 @@ export const GolfScorecardActivitySchema = z.object({
   holePars: z.string(), // String representation of par for each hole
   startTime: z.string(), // ISO 8601 format
   strokes: z.number(),
-  handicappedStrokes: z.number(),
-  scoreWithHandicap: z.number(),
+  handicappedStrokes: z.number().optional(),
+  scoreWithHandicap: z.number().optional(),
   scoreWithoutHandicap: z.number(),
   holesCompleted: z.number(),
   activityHoles: z.array(GolfSummaryHoleSchema),
