@@ -131,10 +131,16 @@ export class GarminConnectClientImpl implements GarminConnectClient {
           totalScore: activity.strokes,
           tees: detail.scorecard.teeBox,
           startTime: detail.scorecard.startTime,
-          perHoleScore: detail.scorecard.holes.map(hole => ({
-            holeNumber: hole.number,
-            strokes: hole.strokes,
-          })),
+          perHoleScore: detail.scorecard.holes.map(hole => {
+            const par = detail.courseSnapshot?.holePars
+              ? Number.parseInt(detail.courseSnapshot.holePars[hole.number - 1], 10)
+              : undefined;
+            return {
+              holeNumber: hole.number,
+              par: Number.isNaN(par) ? undefined : par,
+              strokes: hole.strokes,
+            };
+          }),
         };
       })
     );

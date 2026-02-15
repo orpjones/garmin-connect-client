@@ -270,6 +270,7 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
 
       expect(roundsPage.rounds).toBeDefined();
       expect(Array.isArray(roundsPage.rounds)).toBe(true);
+      expect(roundsPage.rounds.length).toBeGreaterThan(0);
 
       for (const round of roundsPage.rounds) {
         expect(round.courseId).toBeDefined();
@@ -279,6 +280,15 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
         expect(typeof round.startTime).toBe('string');
         expect(round.perHoleScore).toBeDefined();
         expect(Array.isArray(round.perHoleScore)).toBe(true);
+        for (const hole of round.perHoleScore) {
+          expect(typeof hole.holeNumber).toBe('number');
+          expect(hole.holeNumber).toBeGreaterThanOrEqual(1);
+          if (hole.par !== undefined) {
+            expect(typeof hole.par).toBe('number');
+            expect([3, 4, 5]).toContain(hole.par);
+          }
+          if (hole.strokes !== undefined) expect(typeof hole.strokes).toBe('number');
+        }
 
         // courseRating, courseSlope, coursePar, tees are optional (may be omitted for practice/incomplete rounds)
         if (round.courseRating !== undefined) expect(typeof round.courseRating).toBe('number');

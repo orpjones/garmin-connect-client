@@ -683,6 +683,7 @@ export interface GolfRound {
   startTime: string; // ISO 8601 format
   perHoleScore: Array<{
     holeNumber: number;
+    par?: number;
     strokes?: number; // Omitted for unplayed holes (e.g. incomplete rounds)
   }>;
 }
