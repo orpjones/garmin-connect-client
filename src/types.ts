@@ -516,7 +516,7 @@ export const GolfCourseTeeSchema = z
     handicapType: GolfHandicapTypeSchema.or(z.string()),
     rating: z.number(),
     slope: z.number(),
-    holeHandicaps: z.string(),
+    holeHandicaps: z.string().optional(),
   })
   .passthrough();
 
@@ -577,15 +577,16 @@ export const GolfSummaryHoleSchema = z.object({
 });
 
 // Detailed holes from scorecard detail payloads.
+// strokes, handicapScore, putts can be omitted for unplayed holes (e.g. incomplete rounds).
 export const GolfScorecardHoleEntrySchema = z.object({
   number: z.number(),
-  strokes: z.number(),
+  strokes: z.number().optional(),
   penalties: z.number().optional(),
-  handicapScore: z.number(),
-  putts: z.number(),
+  handicapScore: z.number().optional(),
+  putts: z.number().optional(),
   fairwayShotOutcome: z.string().optional(),
-  pinPositionLat: z.number(),
-  pinPositionLon: z.number(),
+  pinPositionLat: z.number().optional(),
+  pinPositionLon: z.number().optional(),
 });
 
 export const GolfScorecardActivitySchema = z.object({
@@ -604,6 +605,7 @@ export const GolfScorecardActivitySchema = z.object({
   courseCounting: z.boolean(),
 });
 
+// Some fields can be omitted when scorecard data is incomplete (e.g. practice rounds).
 export const GolfScorecardDetailSchema = z
   .object({
     id: z.number(),
@@ -613,11 +615,11 @@ export const GolfScorecardDetailSchema = z
     roundType: z.string(),
     startTime: z.string(), // ISO 8601 format
     strokes: z.number(),
-    handicappedStrokes: z.number(),
-    teeBox: z.string(),
-    teeBoxRating: z.number(),
-    teeBoxSlope: z.number(),
-    handicapType: GolfHandicapTypeSchema.or(z.string()),
+    handicappedStrokes: z.number().optional(),
+    teeBox: z.string().optional(),
+    teeBoxRating: z.number().optional(),
+    teeBoxSlope: z.number().optional(),
+    handicapType: GolfHandicapTypeSchema.or(z.string()).optional(),
     holes: z.array(GolfScorecardHoleEntrySchema),
   })
   .passthrough();
@@ -682,7 +684,7 @@ export interface GolfRound {
   startTime: string; // ISO 8601 format
   perHoleScore: Array<{
     holeNumber: number;
-    strokes: number;
+    strokes?: number; // Omitted for unplayed holes (e.g. incomplete rounds)
   }>;
 }
 

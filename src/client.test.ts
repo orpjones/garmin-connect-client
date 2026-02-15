@@ -266,7 +266,7 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
   return {
     shouldRetrieveGolfRounds: async () => {
       const client = getClient();
-      const roundsPage = await client.getGolfRounds(1, 5);
+      const roundsPage = await client.getGolfRounds(1, 1000);
 
       expect(roundsPage.rounds).toBeDefined();
       expect(Array.isArray(roundsPage.rounds)).toBe(true);
