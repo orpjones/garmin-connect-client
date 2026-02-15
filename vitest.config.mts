@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import { config } from 'dotenv';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load .env file from project root
 config({ path: path.resolve(__dirname, '.env') });
