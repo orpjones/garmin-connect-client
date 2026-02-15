@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-02-15
+
+### Added
+- `courseId` on `GolfRound` – Garmin course global ID (from scorecard `courseGlobalId`)
+
+### Changed
+- Loosen golf schema requirements for practice and incomplete rounds: scorecard holes and detail fields (e.g. `strokes`, `teeBox`, `teeBoxRating`) and course tee `holeHandicaps` are now optional when the API omits them
+- Use ESM Vitest config to resolve Vite CJS deprecation warning
+
+### Breaking
+- **`GolfRound`**: `courseRating`, `courseSlope`, `coursePar`, and `tees` are now optional (may be `undefined` when the API omits them, e.g. practice or incomplete rounds).
+
 ## [1.0.3] - 2026-02-15
 
 ### Changed

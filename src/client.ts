@@ -126,13 +126,14 @@ export class GarminConnectClientImpl implements GarminConnectClient {
 
         return {
           scorecardId: activity.id,
+          courseId: detail.scorecard.courseGlobalId,
           courseName: activity.courseName,
-          courseRating: detail.scorecard.teeBoxRating ?? 0,
-          courseSlope: detail.scorecard.teeBoxSlope ?? 0,
-          coursePar: coursePar ?? 0, // Default to 0 if not available
+          courseRating: detail.scorecard.teeBoxRating,
+          courseSlope: detail.scorecard.teeBoxSlope,
+          coursePar,
           holesPlayed: activity.holesCompleted,
           totalScore: activity.strokes,
-          tees: detail.scorecard.teeBox ?? '',
+          tees: detail.scorecard.teeBox,
           distance,
           startTime: detail.scorecard.startTime,
           perHoleScore: detail.scorecard.holes.map(hole => ({

@@ -673,13 +673,14 @@ export interface GolfScorecardDetailWithSnapshot {
 // Convenience type for a golf round with all relevant details
 export interface GolfRound {
   scorecardId: number;
+  courseId: number; // Garmin course global ID (courseGlobalId from scorecard)
   courseName: string;
-  courseRating: number;
-  courseSlope: number;
-  coursePar: number;
+  courseRating?: number;
+  courseSlope?: number;
+  coursePar?: number;
   holesPlayed: number;
   totalScore: number;
-  tees: string;
+  tees?: string;
   distance?: number; // Distance in meters, if available
   startTime: string; // ISO 8601 format
   perHoleScore: Array<{
