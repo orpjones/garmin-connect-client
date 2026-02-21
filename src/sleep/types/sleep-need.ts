@@ -10,7 +10,7 @@ export const SleepNeedSchema = z.object({
   userProfilePk: z.number(),
   calendarDate: z.string(),
   deviceId: z.number(),
-  timestampGmt: z.string(),
+  timestampGmt: z.string(), // ISO 8601 format
   baseline: z.number(),
   actual: z.number(),
   feedback: z.nativeEnum(Feedback),

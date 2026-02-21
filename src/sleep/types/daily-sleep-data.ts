@@ -20,7 +20,7 @@ export const DailySleepDataSchema = z.object({
   dailySleepDTO: z.object({
     id: z.number().nullable(),
     userProfilePK: z.number(),
-    calendarDate: z.string(),
+    calendarDate: z.string(), // ISO 8601 format
     sleepTimeSeconds: z.number().nullable(),
     napTimeSeconds: z.number().nullable(),
     sleepWindowConfirmed: z.boolean().nullable(),
@@ -123,8 +123,8 @@ export const DailySleepDataSchema = z.object({
     .object({
       userProfilePk: z.number(),
       deviceId: z.number(),
-      sleepMeasurementStartGMT: z.string(),
-      sleepMeasurementEndGMT: z.string(),
+      sleepMeasurementStartGMT: z.string(), // ISO 8601 format
+      sleepMeasurementEndGMT: z.string(), // ISO 8601 format
       alertThresholdValue: z.number().nullable(),
       numberOfEventsBelowThreshold: z.number().nullable(),
       durationOfEventsBelowThreshold: z.number().nullable(),

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const TimespanActivityLevelSchema = z.object({
-  startGMT: z.string(),
-  endGMT: z.string(),
+  startGMT: z.string(), // ISO 8601 format
+  endGMT: z.string(), // ISO 8601 format
   activityLevel: z.number(),
 });
 
