@@ -8,7 +8,7 @@ import { TrainingFeedback } from './training-feedback';
 
 export const SleepNeedSchema = z.object({
   userProfilePk: z.number(),
-  calendarDate: z.string(),
+  calendarDate: z.string(), // ISO 8601 format
   deviceId: z.number(),
   timestampGmt: z.string(), // ISO 8601 format
   baseline: z.number(),

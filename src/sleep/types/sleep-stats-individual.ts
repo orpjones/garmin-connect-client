@@ -5,7 +5,7 @@ import { HrvStatus } from '../../types';
 import { SleepScoreQuality } from './sleep-score-quality';
 
 export const SleepStatsIndividualSchema = z.object({
-  calendarDate: z.string(),
+  calendarDate: z.string(), // ISO 8601 format
   values: z.object({
     remTime: z.number(),
     restingHeartRate: z.number().nullable(),
