@@ -7,7 +7,7 @@ export * from './types/feedback';
 export * from './types/hrv-adjustment';
 export * from './types/moment-value';
 export * from './types/nap-adjustment';
-export * from './types/qualifier-key';
+export * from './types/sleep-score-qualifier-key';
 export * from './types/sleep-history-adjustment';
 export * from './types/sleep-need';
 export * from './types/sleep-score-feedback';

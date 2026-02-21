@@ -6,11 +6,11 @@ import { AgeGroup } from './age-group';
 import { BreathingDisruptionSchema } from './breathing-disruption';
 import { BreathingDisruptionSeverity } from './breathing-disruption-severity';
 import { MomentValueSchema } from './moment-value';
-import { QualifierKey } from './qualifier-key';
 import { SleepNeedSchema } from './sleep-need';
 import { SleepScoreFeedback } from './sleep-score-feedback';
 import { SleepScoreInsight } from './sleep-score-insight';
 import { SleepScorePersonalizedInsight } from './sleep-score-personalized-insight';
+import { SleepScoreQualifierKey } from './sleep-score-qualifier-key';
 import { TimespanActivityLevelSchema } from './timespan-activity-level';
 import { WellnessEpochRespirationAverageSchema } from './wellness-epoch-respiration-average';
 import { WellnessEpochRespirationDataDTOSchema } from './wellness-epoch-respiration-data-dto';
@@ -59,41 +59,41 @@ export const DailySleepDataSchema = z.object({
       .object({
         totalDuration: z
           .object({
-            qualifierKey: z.nativeEnum(QualifierKey),
+            qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
             optimalStart: z.number(),
             optimalEnd: z.number(),
           })
           .optional(),
         stress: z.object({
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
           optimalStart: z.number(),
           optimalEnd: z.number(),
         }),
         awakeCount: z.object({
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
           optimalStart: z.number(),
           optimalEnd: z.number(),
         }),
         overall: z.object({
           value: z.number(),
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
         }),
         remPercentage: z.object({
           value: z.number(),
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
           optimalStart: z.number(),
           optimalEnd: z.number(),
           idealStartInSeconds: z.number(),
           idealEndInSeconds: z.number(),
         }),
         restlessness: z.object({
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
           optimalStart: z.number(),
           optimalEnd: z.number(),
         }),
         lightPercentage: z.object({
           value: z.number(),
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
           optimalStart: z.number(),
           optimalEnd: z.number(),
           idealStartInSeconds: z.number(),
@@ -101,7 +101,7 @@ export const DailySleepDataSchema = z.object({
         }),
         deepPercentage: z.object({
           value: z.number(),
-          qualifierKey: z.nativeEnum(QualifierKey),
+          qualifierKey: z.nativeEnum(SleepScoreQualifierKey),
           optimalStart: z.number(),
           optimalEnd: z.number(),
           idealStartInSeconds: z.number(),

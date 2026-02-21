@@ -1,4 +1,4 @@
-export enum QualifierKey {
+export enum SleepScoreQualifierKey {
   EXCELLENT = 'EXCELLENT',
   GOOD = 'GOOD',
   FAIR = 'FAIR',
