@@ -76,7 +76,7 @@ export const DailySleepDataSchema = z.object({
         }),
         overall: z.object({
           value: z.number(),
-          qualifierKey: z.string(),
+          qualifierKey: z.nativeEnum(QualifierKey),
         }),
         remPercentage: z.object({
           value: z.number(),
