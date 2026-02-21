@@ -182,6 +182,29 @@ const rounds = await Promise.all(
 );
 ```
 
+### Sleep
+
+The sleep client can be used to fetch various sleep-related data points.
+
+#### Get daily sleep data
+
+```typescript
+const dailySleepData = await client.sleep.getDailySleepData(DateTime.now());
+
+console.log(`Your overall sleep score for today is: ${dailySleepData.dailySleepDTO.sleepScores.overall.value}`);
+```
+
+#### Get sleep stats over a date range
+
+```typescript
+const sleepStats = await client.sleep.getSleepStats(
+  DateTime.now().minus({ days: 7 }),
+  DateTime.now().now()
+);
+
+console.log(`Your average sleep score over the last 7 days was: ${sleepStats.overallStates.averageSleepScore}`);
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute to this project.
