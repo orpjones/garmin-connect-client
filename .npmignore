@@ -22,6 +22,7 @@ coverage/
 .prettierrc
 tsconfig.json
 vitest.config.ts
+vitest.config.mts
 .husky/
 
 # Environment files

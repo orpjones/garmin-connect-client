@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-02-15
+
+### Added
+- `par` on each item in `GolfRound.perHoleScore` – optional per-hole par from course snapshot when available
+
+## [1.0.5] - 2026-02-15
+
+### Removed
+- `distance` on `GolfRound` – not provided by the scorecard detail API
+- `distanceMeters` on `GolfCourseSummary` – not present in Garmin API responses
+
+## [1.0.4] - 2026-02-15
+
+### Added
+- `courseId` on `GolfRound` – Garmin course global ID (from scorecard `courseGlobalId`)
+
+### Changed
+- Loosen golf schema requirements for practice and incomplete rounds: scorecard holes and detail fields (e.g. `strokes`, `teeBox`, `teeBoxRating`) and course tee `holeHandicaps` are now optional when the API omits them
+- Use ESM Vitest config to resolve Vite CJS deprecation warning
+
+### Breaking
+- **`GolfRound`**: `courseRating`, `courseSlope`, `coursePar`, and `tees` are now optional (may be `undefined` when the API omits them, e.g. practice or incomplete rounds).
+
+## [1.0.3] - 2026-02-15
+
+### Changed
+- Updated schema and tests for golf scorecards
+- Prevent concurrent publish attempts
+
 ## [1.0.2] - 2026-01-29
 
 ### Changed

@@ -267,24 +267,35 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
   return {
     shouldRetrieveGolfRounds: async () => {
       const client = getClient();
-      const roundsPage = await client.getGolfRounds(1, 5);
+      const roundsPage = await client.getGolfRounds(1, 1000);
 
       expect(roundsPage.rounds).toBeDefined();
       expect(Array.isArray(roundsPage.rounds)).toBe(true);
+      expect(roundsPage.rounds.length).toBeGreaterThan(0);
 
-      // Key value: getGolfRounds combines data that would otherwise require multiple API calls
-      if (roundsPage.rounds.length > 0) {
-        const round = roundsPage.rounds[0];
-        // Verify convenience fields are present (rating/slope/par/tees require detail endpoint otherwise)
+      for (const round of roundsPage.rounds) {
+        expect(round.courseId).toBeDefined();
+        expect(typeof round.courseId).toBe('number');
         expect(round.courseName).toBeDefined();
-        expect(round.courseRating).toBeDefined();
-        expect(round.courseSlope).toBeDefined();
-        expect(round.coursePar).toBeDefined();
-        expect(round.tees).toBeDefined();
         expect(round.startTime).toBeDefined();
         expect(typeof round.startTime).toBe('string');
         expect(round.perHoleScore).toBeDefined();
         expect(Array.isArray(round.perHoleScore)).toBe(true);
+        for (const hole of round.perHoleScore) {
+          expect(typeof hole.holeNumber).toBe('number');
+          expect(hole.holeNumber).toBeGreaterThanOrEqual(1);
+          if (hole.par !== undefined) {
+            expect(typeof hole.par).toBe('number');
+            expect([3, 4, 5]).toContain(hole.par);
+          }
+          if (hole.strokes !== undefined) expect(typeof hole.strokes).toBe('number');
+        }
+
+        // courseRating, courseSlope, coursePar, tees are optional (may be omitted for practice/incomplete rounds)
+        if (round.courseRating !== undefined) expect(typeof round.courseRating).toBe('number');
+        if (round.courseSlope !== undefined) expect(typeof round.courseSlope).toBe('number');
+        if (round.coursePar !== undefined) expect(typeof round.coursePar).toBe('number');
+        if (round.tees !== undefined) expect(typeof round.tees).toBe('string');
       }
     },
 
@@ -297,9 +308,9 @@ function testGolfRoundsImpl(getClient: () => GarminConnectClient) {
 
       // Get second page if there are more rounds
       if (firstPage.hasNextPage) {
-        const secondPage = await client.getGolfRounds(2, 5);
+        const secondPage = await client.getGolfRounds(2, 1000);
         expect(secondPage.pageNumber).toBe(2);
-        expect(secondPage.rowsPerPage).toBe(5);
+        expect(secondPage.rowsPerPage).toBe(1000);
 
         // Rounds should be different if both pages have data
         if (secondPage.rounds.length > 0 && firstPage.rounds.length > 0) {

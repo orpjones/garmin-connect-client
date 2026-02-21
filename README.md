@@ -160,6 +160,7 @@ const roundsPage = await client.getGolfRounds(1, 20, 'en');
 
 for (const round of roundsPage.rounds) {
   console.log({
+    courseId: round.courseId,
     courseName: round.courseName,
     startTime: round.startTime, // ISO 8601 timestamp
     totalScore: round.totalScore,
@@ -168,7 +169,7 @@ for (const round of roundsPage.rounds) {
     coursePar: round.coursePar,
     tees: round.tees,
     holesPlayed: round.holesPlayed,
-    perHoleScore: round.perHoleScore, // Array of { holeNumber, strokes }
+    perHoleScore: round.perHoleScore, // Array of { holeNumber, strokes? }
   });
 }
 

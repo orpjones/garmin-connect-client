@@ -129,25 +129,27 @@ export class GarminConnectClientImpl implements GarminConnectClient {
             .reduce((sum, par) => sum + par, 0);
         }
 
-        // Extract distance if available from course snapshot
-        // Note: Distance might not always be available in the API response
-        const distance = undefined; // Could be calculated from hole distances if available
-
         return {
           scorecardId: activity.id,
+          courseId: detail.scorecard.courseGlobalId,
           courseName: activity.courseName,
           courseRating: detail.scorecard.teeBoxRating,
           courseSlope: detail.scorecard.teeBoxSlope,
-          coursePar: coursePar ?? 0, // Default to 0 if not available
+          coursePar,
           holesPlayed: activity.holesCompleted,
           totalScore: activity.strokes,
           tees: detail.scorecard.teeBox,
-          distance,
           startTime: detail.scorecard.startTime,
-          perHoleScore: detail.scorecard.holes.map(hole => ({
-            holeNumber: hole.number,
-            strokes: hole.strokes,
-          })),
+          perHoleScore: detail.scorecard.holes.map(hole => {
+            const par = detail.courseSnapshot?.holePars
+              ? Number.parseInt(detail.courseSnapshot.holePars[hole.number - 1], 10)
+              : undefined;
+            return {
+              holeNumber: hole.number,
+              par: Number.isNaN(par) ? undefined : par,
+              strokes: hole.strokes,
+            };
+          }),
         };
       })
     );
