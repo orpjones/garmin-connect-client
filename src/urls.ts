@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { stringify } from 'qs';
 
 // Garmin Connect URL constants and construction methods
@@ -8,8 +9,8 @@ export class GarminUrls {
   readonly MOBILE_API_LOGIN = 'https://sso.garmin.com/mobile/api/login';
   readonly MOBILE_API_MFA_VERIFY = 'https://sso.garmin.com/mobile/api/mfa/verifyCode';
   readonly MOBILE_SERVICE = 'https://mobile.integration.garmin.com/gcm/ios';
-  // Activity API endpoints
-  readonly ACTIVITY_BASE = 'https://connectapi.garmin.com/activitylist-service';
+  // Connect Api endpoints
+  readonly CONNECT_API = 'https://connectapi.garmin.com';
   // Golf API endpoints
   readonly GOLF_API_BASE = 'https://golf.garmin.com/gcs-golfcommunity/api/v2';
 
@@ -85,11 +86,11 @@ export class GarminUrls {
 
   // Activity API methods
   ACTIVITY_SEARCH(start = 0, limit = 20): string {
-    return `${this.ACTIVITY_BASE}/activities/search/activities?start=${start}&limit=${limit}`;
+    return `${this.CONNECT_API}/activitylist-service/activities/search/activities?start=${start}&limit=${limit}`;
   }
 
   ACTIVITY_DETAIL(activityId: string | number): string {
-    return `${this.ACTIVITY_BASE}/activities/${activityId}`;
+    return `${this.CONNECT_API}/activitylist-service/activities/${activityId}`;
   }
 
   // Golf API methods
@@ -99,5 +100,14 @@ export class GarminUrls {
 
   GOLF_SCORECARD_DETAILS(scorecardId: number, locale = 'en'): string {
     return `${this.GOLF_API_BASE}/scorecard/detail?scorecard-ids=${scorecardId}&skip-course-info=0&skip-stats-info=0&skip-shot-summary-info=1&user-locale=${locale}`;
+  }
+
+  // Sleep API methods
+  DAILY_SLEEP_DATA(date: DateTime<true>, nonSleepBufferMinutes = 60): string {
+    return `${this.CONNECT_API}/sleep-service/sleep/dailySleepData?date=${date.toUTC().toISODate()}&nonSleepBufferMinutes=${nonSleepBufferMinutes}`;
+  }
+
+  SLEEP_STATS(from: DateTime<true>, to: DateTime<true>): string {
+    return `${this.CONNECT_API}/sleep-service/stats/sleep/daily/${from.toUTC().toISODate()}/${to.toUTC().toISODate()}`;
   }
 }

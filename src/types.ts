@@ -1,6 +1,10 @@
 // Type definitions for Garmin Connect
 
+import { DateTime } from 'luxon';
 import { z } from 'zod';
+
+import { DailySleepData } from './sleep/types/daily-sleep-data';
+import { SleepStats } from './sleep/types/sleep-stats';
 
 // ============================================================================
 // Enums
@@ -272,6 +276,8 @@ export enum BodyBatteryEventType {
 
 export enum HrvStatus {
   BALANCED = 'BALANCED',
+  LOW = 'LOW',
+  NONE = 'NONE',
   UNBALANCED = 'UNBALANCED',
 }
 
@@ -952,7 +958,13 @@ export interface GarminConnectClientConfig {
   password: string;
 }
 
+export interface GarminConnectSleepClient {
+  getDailySleepData(date?: DateTime<true>, nonSleepBufferMinutes?: number): Promise<DailySleepData>;
+  getSleepStats(from: DateTime<true>, to: DateTime<true>): Promise<SleepStats>;
+}
+
 export interface GarminConnectClient {
+  sleep: GarminConnectSleepClient;
   getActivities(start?: number, limit?: number): Promise<Activity[]>;
   getActivity(id: string): Promise<Activity>;
   getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesPage>;

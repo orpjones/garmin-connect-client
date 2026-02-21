@@ -4,6 +4,7 @@ import { AuthContext } from './auth-context';
 import { AuthenticationService } from './authentication-service';
 import { AuthenticationContextError, MfaCodeError } from './errors';
 import { HttpClient } from './http-client';
+import { SleepClientImpl } from './sleep/client';
 import type {
   Activity,
   GarminConnectClient,
@@ -11,6 +12,7 @@ import type {
   GolfScorecardDetailWithSnapshot,
   GolfRound,
   GolfRoundsPage,
+  GarminConnectSleepClient,
 } from './types';
 import { ActivitySchema, GolfActivitiesPageSchema, GolfScorecardDetailsResponseSchema } from './types';
 import { GarminUrls } from './urls';
@@ -22,9 +24,16 @@ export class GarminConnectClientImpl implements GarminConnectClient {
   private httpClient: HttpClient;
   private urls: GarminUrls;
 
+  private sleepClient: GarminConnectSleepClient;
+  public get sleep() {
+    return this.sleepClient;
+  }
+
   private constructor(httpClient: HttpClient, urls: GarminUrls) {
     this.httpClient = httpClient;
     this.urls = urls;
+
+    this.sleepClient = new SleepClientImpl(this.httpClient, this.urls);
   }
 
   static async create(context: AuthContext, urls: GarminUrls, mfaCode?: string): Promise<GarminConnectClient> {
