@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { stringify } from 'qs';
 
 // Garmin Connect URL constants and construction methods
@@ -99,5 +100,14 @@ export class GarminUrls {
 
   GOLF_SCORECARD_DETAILS(scorecardId: number, locale = 'en'): string {
     return `${this.GOLF_API_BASE}/scorecard/detail?scorecard-ids=${scorecardId}&skip-course-info=0&skip-stats-info=0&skip-shot-summary-info=1&user-locale=${locale}`;
+  }
+
+  // Sleep API methods
+  DAILY_SLEEP_DATA(date: DateTime<true>, nonSleepBufferMinutes = 60): string {
+    return `${this.CONNECT_API}/sleep-service/sleep/dailySleepData?date=${date.toUTC().toISODate()}&nonSleepBufferMinutes=${nonSleepBufferMinutes}`;
+  }
+
+  SLEEP_STATS(from: DateTime<true>, to: DateTime<true>): string {
+    return `${this.CONNECT_API}/sleep-service/stats/sleep/daily/${from.toUTC().toISODate()}/${to.toUTC().toISODate()}`;
   }
 }
