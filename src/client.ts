@@ -13,6 +13,7 @@ import type {
   GolfRound,
   GolfRoundsPage,
   GarminConnectSleepClient,
+  PersistedSession,
 } from './types';
 import { ActivitySchema, GolfActivitiesPageSchema, GolfScorecardDetailsResponseSchema } from './types';
 import { GarminUrls } from './urls';
@@ -75,6 +76,21 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     return new GarminConnectClientImpl(httpClient, urls);
   }
 
+  // Creates a client from persisted session data (no network calls)
+  static fromSession(session: PersistedSession): GarminConnectClientImpl {
+    const urls = new GarminUrls();
+    const authContext = new AuthContext(
+      false,
+      session.cookies,
+      undefined,
+      undefined,
+      session.oauth1Token,
+      session.oauth2Token
+    );
+    const httpClient = new HttpClient(urls, authContext);
+    return new GarminConnectClientImpl(httpClient, urls);
+  }
+
   async getActivities(start = 0, limit = 20): Promise<Activity[]> {
     const url = this.urls.ACTIVITY_SEARCH(start, limit);
     const response = await this.httpClient.get<unknown>(url);
@@ -109,6 +125,10 @@ export class GarminConnectClientImpl implements GarminConnectClient {
       scorecard: detail.scorecard,
       courseSnapshot: snapshot,
     };
+  }
+
+  getSession(): PersistedSession {
+    return this.httpClient.getSession();
   }
 
   async getGolfRounds(page = 1, perPage = 20, locale = 'en'): Promise<GolfRoundsPage> {

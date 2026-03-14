@@ -27,6 +27,30 @@ const client = await create(authContext, mfaCode);
 const activities = await client.getActivities();
 ```
 
+### Session persistence
+
+Authenticate once, then persist and restore the session to avoid repeated logins (and MFA prompts):
+
+```typescript
+import { create, createAuthContext, createFromSession } from 'garmin-connect-client';
+import fs from 'fs/promises';
+
+// 1. Authenticate and save session
+const authContext = await createAuthContext({ username, password });
+const mfaCode = authContext.mfaRequired ? await getUserMfaCode() : undefined;
+const client = await create(authContext, mfaCode);
+
+const session = client.getSession();
+await fs.writeFile('session.json', JSON.stringify(session));
+
+// 2. Restore client from saved session (no network call)
+const sessionData = JSON.parse(await fs.readFile('session.json', 'utf-8'));
+const restoredClient = createFromSession(sessionData);
+const activities = await restoredClient.getActivities();
+```
+
+**Security**: Session data contains OAuth tokens and cookies. It should be treated like a password and stored securely.
+
 ### Golf Activities
 
 Common use cases for golf activities.

@@ -21,7 +21,7 @@ import { GarminConnectClientImpl } from './client';
 import { InvalidCredentialsError, MfaCodeInvalidError, NotAuthenticatedError } from './errors';
 import type { GarminConnectClient } from './types';
 
-import { create, createAuthContext } from './index';
+import { create, createAuthContext, createFromSession } from './index';
 
 // Environment variables - loaded in beforeAll hook
 let GARMIN_USERNAME: string | undefined;
@@ -410,6 +410,20 @@ describe('GarminConnectClient', () => {
     describe('with authenticated basic client', () => {
       beforeAll(async () => {
         await getAuthenticatedBasicClient();
+      });
+
+      describe('session persistence', () => {
+        it('should persist and restore session', async () => {
+          const session = basicClient!.getSession();
+          expect(session.cookies).toBeDefined();
+          expect(session.oauth1Token).toBeDefined();
+          expect(session.oauth2Token).toBeDefined();
+
+          const restoredClient = createFromSession(session);
+          const activities = await restoredClient.getActivities();
+          expect(activities).toBeDefined();
+          expect(Array.isArray(activities)).toBe(true);
+        });
       });
 
       describe('getActivities', () => {

@@ -27,6 +27,7 @@ export type {
   GolfRoundsPage,
   GarminConnectClient,
   GarminConnectClientConfig,
+  PersistedSession,
   HeartRate,
   HeartRateZoneScalar,
   Hydration,
@@ -132,7 +133,7 @@ export * from './sleep';
 import { AuthContext } from './auth-context';
 import { AuthenticationService, AuthenticationSuccess } from './authentication-service';
 import { GarminConnectClientImpl } from './client';
-import type { GarminConnectClient, GarminConnectClientConfig } from './types';
+import type { GarminConnectClient, GarminConnectClientConfig, PersistedSession } from './types';
 import { GarminUrls } from './urls';
 
 // Creates an authentication context by starting the login process
@@ -165,6 +166,12 @@ export async function createAuthContext(config: GarminConnectClientConfig): Prom
 export async function create(context: AuthContext, mfaCode?: string): Promise<GarminConnectClient> {
   const urls = new GarminUrls();
   return GarminConnectClientImpl.create(context, urls, mfaCode);
+}
+
+// Creates a client from persisted session data.
+// Use client.getSession() to obtain session data after authenticating
+export function createFromSession(session: PersistedSession): GarminConnectClient {
+  return GarminConnectClientImpl.fromSession(session);
 }
 
 export { AuthContext, MfaMethod, parseMfaMethod } from './auth-context';

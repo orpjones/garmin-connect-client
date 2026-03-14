@@ -17,7 +17,7 @@ import {
   createOauthClient,
   setOauth2TokenExpiresAt,
 } from './oauth-utils';
-import type { OAuth1Token, OAuth2Token } from './types';
+import type { OAuth1Token, OAuth2Token, PersistedSession } from './types';
 import { GarminUrls } from './urls';
 
 export class HttpClient {
@@ -58,6 +58,21 @@ export class HttpClient {
   // Returns a JSON string that can be restored with setCookies
   getCookies(): string {
     return JSON.stringify(this.cookieJar.toJSON());
+  }
+
+  // Gets the full session state for persistence (cookies + OAuth tokens)
+  // Throws NotAuthenticatedError if the client is not fully authenticated
+  getSession(): PersistedSession {
+    if (!this.oauth1Token || !this.oauth2Token) {
+      throw new NotAuthenticatedError(
+        'Session cannot be persisted: missing OAuth tokens (client not fully authenticated)'
+      );
+    }
+    return {
+      cookies: this.getCookies(),
+      oauth1Token: this.oauth1Token,
+      oauth2Token: this.oauth2Token,
+    };
   }
 
   // Sets cookies from a JSON string (used during authentication flow)

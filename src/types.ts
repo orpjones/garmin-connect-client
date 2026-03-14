@@ -970,6 +970,7 @@ export interface GarminConnectClient {
   getGolfActivities(page?: number, perPage?: number, locale?: string): Promise<GolfActivitiesPage>;
   getGolfScorecardDetail(scorecardId: number, locale?: string): Promise<GolfScorecardDetailWithSnapshot>;
   getGolfRounds(page?: number, perPage?: number, locale?: string): Promise<GolfRoundsPage>;
+  getSession(): PersistedSession;
 }
 
 // OAuth 1.0 application identity (key/secret)
@@ -995,4 +996,14 @@ export interface OAuth2Token {
   refresh_token_expires_at?: number;
   last_update_date?: string;
   expires_date?: string;
+}
+
+/**
+ * Serializable session data for persistence.
+ * Store this (e.g. in a file or secure storage) and use `createFromSession()` to restore a client.
+ */
+export interface PersistedSession {
+  cookies: string;
+  oauth1Token: OAuth1Token;
+  oauth2Token: OAuth2Token;
 }
