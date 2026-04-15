@@ -30,9 +30,9 @@ npm run lint
 
 ## Auth Flow Notes
 
-- `AuthenticationService.startAuthentication()` performs the initial login and returns either `AuthenticationSuccess` or `MfaRequiredResult`.
-- `AuthenticationService.completeAuthentication()` accepts either a ticket or MFA parameters, completes OAuth, and returns an authenticated `HttpClient`.
-- `HttpClient` stores the cookie jar plus OAuth tokens and refreshes expired OAuth 2.0 tokens using the OAuth 1.0 token.
+- `AuthenticationService.startAuthentication()` performs the initial login and returns an `AuthContext` discriminated union: either `{ mfaRequired: false, ticket, cookies }` or `{ mfaRequired: true, cookies }`.
+- `AuthenticationService.completeAuthentication(urls, context, mfaCode?)` runs the OAuth exchange (posting the MFA code first when `context.mfaRequired`) and returns an authenticated `HttpClient`.
+- `HttpClient` stores the cookie jar plus OAuth tokens and refreshes expired OAuth 2.0 tokens using the OAuth 1.0 token (via `OAuth2Exchanger`, which handles both legacy and new-flow refresh based on the presence of `mfa_token`).
 - `GarminConnectClientImpl.create()` is the main integration point between `AuthContext` and `AuthenticationService`.
 
 ## Editing Guidance

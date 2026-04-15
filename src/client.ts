@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-import { AuthContext } from './auth-context';
-import { AuthenticationService } from './authentication-service';
-import { AuthenticationContextError, MfaCodeError } from './errors';
 import { HttpClient } from './http-client';
 import { SleepClientImpl } from './sleep/client';
 import type {
@@ -37,35 +34,8 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     this.sleepClient = new SleepClientImpl(this.httpClient, this.urls);
   }
 
-  static async create(context: AuthContext, urls: GarminUrls, mfaCode?: string): Promise<GarminConnectClient> {
-    const cookies = context.getCookies();
-
-    let httpClient: HttpClient;
-    if (context.mfaRequired) {
-      if (!mfaCode) {
-        throw new MfaCodeError('MFA code is required when mfaRequired is true');
-      }
-      if (!context.mfaMethod) {
-        throw new AuthenticationContextError('MFA method not found in auth context');
-      }
-      // Complete MFA authentication
-      httpClient = await AuthenticationService.completeAuthentication(urls, cookies, {
-        type: 'mfa',
-        mfaCode,
-        mfaMethod: context.mfaMethod,
-      });
-    } else {
-      // No MFA - use the ticket we already have
-      const ticket = context.getTicket();
-      if (!ticket) {
-        throw new AuthenticationContextError('Ticket not found in auth context');
-      }
-      httpClient = await AuthenticationService.completeAuthentication(urls, cookies, {
-        type: 'ticket',
-        ticket,
-      });
-    }
-
+  // Wraps a fully-authenticated HttpClient in a GarminConnectClient.
+  static fromHttpClient(httpClient: HttpClient, urls: GarminUrls): GarminConnectClientImpl {
     return new GarminConnectClientImpl(httpClient, urls);
   }
 
@@ -79,15 +49,7 @@ export class GarminConnectClientImpl implements GarminConnectClient {
   // Creates a client from persisted session data (no network calls)
   static fromSession(session: PersistedSession): GarminConnectClientImpl {
     const urls = new GarminUrls();
-    const authContext = new AuthContext(
-      false,
-      session.cookies,
-      undefined,
-      undefined,
-      session.oauth1Token,
-      session.oauth2Token
-    );
-    const httpClient = new HttpClient(urls, authContext);
+    const httpClient = new HttpClient(urls, session);
     return new GarminConnectClientImpl(httpClient, urls);
   }
 

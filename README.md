@@ -11,17 +11,18 @@ npm install garmin-connect-client
 ## Usage
 
 ```typescript
-import { createAuthContext, create } from 'garmin-connect-client';
+import { login } from 'garmin-connect-client';
 
-// Step 1: Create an authentication context
-const authContext = await createAuthContext({
+// Step 1: Log in with credentials
+const result = await login({
   username: 'your-username',
   password: 'your-password',
 });
 
-// Step 2: Create authenticated client (provide MFA code if required)
-const mfaCode = authContext.mfaRequired ? await getUserMfaCode() : undefined;
-const client = await create(authContext, mfaCode);
+// Step 2: If MFA is required, resume the login with the user's code
+const client = result.mfaRequired
+  ? await login(result, await getUserMfaCode())
+  : result.client;
 
 // Use the client
 const activities = await client.getActivities();
@@ -32,20 +33,21 @@ const activities = await client.getActivities();
 Authenticate once, then persist and restore the session to avoid repeated logins (and MFA prompts):
 
 ```typescript
-import { create, createAuthContext, createFromSession } from 'garmin-connect-client';
+import { login, fromSession } from 'garmin-connect-client';
 import fs from 'fs/promises';
 
 // 1. Authenticate and save session
-const authContext = await createAuthContext({ username, password });
-const mfaCode = authContext.mfaRequired ? await getUserMfaCode() : undefined;
-const client = await create(authContext, mfaCode);
+const result = await login({ username, password });
+const client = result.mfaRequired
+  ? await login(result, await getUserMfaCode())
+  : result.client;
 
 const session = client.getSession();
 await fs.writeFile('session.json', JSON.stringify(session));
 
 // 2. Restore client from saved session (no network call)
 const sessionData = JSON.parse(await fs.readFile('session.json', 'utf-8'));
-const restoredClient = createFromSession(sessionData);
+const restoredClient = fromSession(sessionData);
 const activities = await restoredClient.getActivities();
 ```
 

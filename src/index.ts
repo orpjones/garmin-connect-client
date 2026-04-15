@@ -110,7 +110,6 @@ export {
 // Export all custom exceptions
 export {
   AuthenticationError,
-  AuthenticationContextError,
   ClientError,
   CsrfTokenError,
   GarminConnectError,
@@ -130,50 +129,69 @@ export {
 // Sleep service
 export * from './sleep';
 
-import { AuthContext } from './auth-context';
-import { AuthenticationService, AuthenticationSuccess } from './authentication-service';
+import { AuthenticationService } from './authentication-service';
 import { GarminConnectClientImpl } from './client';
 import type { GarminConnectClient, GarminConnectClientConfig, PersistedSession } from './types';
 import { GarminUrls } from './urls';
 
-// Creates an authentication context by starting the login process
-// Returns Promise resolving to an AuthContext with mfaRequired flag
+// Result of the initial `login(config)` call. Either the login completed
+// (credentials accepted, OAuth exchange done) or the account requires an MFA
+// code to finish — in which case the caller passes the `MfaPending` value
+// back into `login(pending, code)` to resume.
+export interface LoginSuccess {
+  readonly mfaRequired: false;
+  readonly client: GarminConnectClient;
+}
+export interface MfaPending {
+  readonly mfaRequired: true;
+  readonly cookies: string;
+}
+export type LoginResult = LoginSuccess | MfaPending;
+
+function isMfaPending(value: GarminConnectClientConfig | MfaPending): value is MfaPending {
+  return 'mfaRequired' in value && value.mfaRequired === true;
+}
+
+// Logs in to Garmin Connect.
 //
-// Example:
-//   const authContext = await createAuthContext({ username, password });
-//   if (authContext.mfaRequired) {
-//     const mfaCode = await getUserMfaCode();
-//     const client = await create(authContext, mfaCode);
+// Call 1 — initial login:
+//   const result = await login({ username, password });
+//   if (result.mfaRequired) {
+//     const client = await login(result, await promptMfaCode());
 //   } else {
-//     const client = await create(authContext);
+//     const client = result.client;
 //   }
-export async function createAuthContext(config: GarminConnectClientConfig): Promise<AuthContext> {
-  const urls = new GarminUrls();
-  const result = await AuthenticationService.startAuthentication(urls, config.username, config.password);
-
-  // Authentication succeeded - no MFA required, or MFA required
-  return result instanceof AuthenticationSuccess
-    ? new AuthContext(false, result.cookies, undefined, result.ticket)
-    : new AuthContext(true, result.cookies, result.mfaMethod);
-}
-
-// Creates a new Garmin Connect client using an authentication context
-// Returns Promise resolving to an authenticated client instance
 //
-// Example:
-//   const authContext = await createAuthContext({ username, password });
-//   const client = await create(authContext, authContext.mfaRequired ? mfaCode : undefined);
-export async function create(context: AuthContext, mfaCode?: string): Promise<GarminConnectClient> {
+// Call 2 — resume an MFA-pending login: pass the `MfaPending` value returned
+// by call 1 together with the MFA code. Throws `MfaCodeInvalidError` on a bad
+// code, `InvalidCredentialsError` on any other signin failure.
+export function login(config: GarminConnectClientConfig): Promise<LoginResult>;
+export function login(pending: MfaPending, mfaCode: string): Promise<GarminConnectClient>;
+export async function login(
+  configOrPending: GarminConnectClientConfig | MfaPending,
+  mfaCode?: string
+): Promise<LoginResult | GarminConnectClient> {
   const urls = new GarminUrls();
-  return GarminConnectClientImpl.create(context, urls, mfaCode);
+
+  if (isMfaPending(configOrPending)) {
+    const httpClient = await AuthenticationService.completeAuthentication(urls, configOrPending, mfaCode);
+    return GarminConnectClientImpl.fromHttpClient(httpClient, urls);
+  }
+
+  const context = await AuthenticationService.startAuthentication(
+    urls,
+    configOrPending.username,
+    configOrPending.password
+  );
+  if (context.mfaRequired) {
+    return { mfaRequired: true, cookies: context.cookies };
+  }
+  const httpClient = await AuthenticationService.completeAuthentication(urls, context);
+  return { mfaRequired: false, client: GarminConnectClientImpl.fromHttpClient(httpClient, urls) };
 }
 
-// Creates a client from persisted session data.
-// Use client.getSession() to obtain session data after authenticating
-export function createFromSession(session: PersistedSession): GarminConnectClient {
+// Restores a client from a previously-persisted session (no network calls).
+// Use `client.getSession()` to obtain the session after authenticating.
+export function fromSession(session: PersistedSession): GarminConnectClient {
   return GarminConnectClientImpl.fromSession(session);
 }
-
-export { AuthContext, MfaMethod, parseMfaMethod } from './auth-context';
-
-export type { AuthenticationParameters } from './authentication-service';
