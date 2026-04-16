@@ -30,6 +30,8 @@ export class HttpClient {
   private isRefreshing = false;
   // Shared promise for concurrent refresh requests to avoid duplicate refresh calls
   private refreshPromise?: Promise<string>;
+  // Called (and awaited) after every automatic token refresh so the consumer can re-persist the session
+  private onSessionUpdate?: (session: PersistedSession) => void | Promise<void>;
 
   constructor(urls: GarminUrls, session?: PersistedSession) {
     this.urls = urls;
@@ -39,6 +41,10 @@ export class HttpClient {
     }
     this.client = wrapper(axios.create({ jar: this.cookieJar }));
     this.setupInterceptors();
+  }
+
+  setSessionUpdateCallback(callback: (session: PersistedSession) => void | Promise<void>): void {
+    this.onSessionUpdate = callback;
   }
 
   // Gets serialized cookie jar data as JSON string for storage/transmission
@@ -135,6 +141,7 @@ export class HttpClient {
       try {
         const newToken = await refreshDiToken(this.urls, oauth2Token.refresh_token, diClientId);
         this.auth = { oauth2Token: newToken, diClientId };
+        await this.onSessionUpdate?.(this.getSession());
         return newToken.access_token;
       } finally {
         this.isRefreshing = false;

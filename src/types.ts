@@ -971,6 +971,9 @@ export interface GarminConnectClient {
   getGolfScorecardDetail(scorecardId: number, locale?: string): Promise<GolfScorecardDetailWithSnapshot>;
   getGolfRounds(page?: number, perPage?: number, locale?: string): Promise<GolfRoundsPage>;
   getSession(): PersistedSession;
+  // Registers a callback invoked (and awaited) after every automatic token refresh,
+  // so the consumer can re-persist the updated session. Replaces any previous callback.
+  onSessionUpdate(callback: (session: PersistedSession) => void | Promise<void>): void;
 }
 
 // OAuth 2.0 Token (Garmin-specific response format)

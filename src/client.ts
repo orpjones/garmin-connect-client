@@ -89,6 +89,10 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     };
   }
 
+  onSessionUpdate(callback: (session: PersistedSession) => void | Promise<void>): void {
+    this.httpClient.setSessionUpdateCallback(callback);
+  }
+
   getSession(): PersistedSession {
     return this.httpClient.getSession();
   }

@@ -70,7 +70,7 @@ function extractTicket(html: string): string | undefined {
   for (const pattern of patterns) {
     const match = pattern.exec(html);
     if (match) {
-      const url = match[1].replaceAll('\\/', '/');
+      const url = match[1].replaceAll('\\/', '/'); // unescape \/ → / in Garmin's JS string literals
       const ticketMatch = /[&?]ticket=([\da-z-]+)/i.exec(url);
       if (ticketMatch) return ticketMatch[1];
     }

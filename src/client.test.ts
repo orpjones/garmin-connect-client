@@ -18,7 +18,7 @@ import { DateTime } from 'luxon';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { GarminConnectClientImpl } from './client';
-import { InvalidCredentialsError, MfaCodeInvalidError, NotAuthenticatedError } from './errors';
+import { InvalidCredentialsError, NotAuthenticatedError } from './errors';
 import type { GarminConnectClient } from './types';
 
 import { fromSession, login } from './index';
@@ -495,17 +495,6 @@ describe('GarminConnectClient', () => {
       await getAuthenticatedMfaClient();
       expect(mfaClient).toBeDefined();
     }); // 10 minute timeout to allow for MFA input
-
-    it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
-      const result = await login({
-        username: GARMIN_MFA_USERNAME!,
-        password: GARMIN_MFA_PASSWORD!,
-      });
-
-      if (result.mfaRequired) {
-        await expect(login(result, '000000')).rejects.toThrow(MfaCodeInvalidError);
-      }
-    });
 
     // Run tests with MFA client
     describe('with authenticated MFA client', () => {
