@@ -27,13 +27,13 @@ jobs:
     permissions:
       contents: write
       id-token: write
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
@@ -45,22 +45,34 @@ jobs:
           echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
           echo "✓ Extracted version $TAG_VERSION from tag"
 
-      - name: Validate changelog entry exists
+      - name: Validate package.json version matches tag
+        env:
+          TAG_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION=${{ steps.version.outputs.version }}
-          
-          if grep -q "## \[$VERSION\]" CHANGELOG.md; then
-            echo "✓ Changelog entry for v$VERSION exists"
-          else
-            echo "❌ Error: Changelog entry for v$VERSION not found in CHANGELOG.md"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "❌ Tag version (v$TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            echo "Bump the version in package.json and commit before tagging."
+            exit 1
+          fi
+          echo "✓ package.json version matches tag ($TAG_VERSION)"
+
+      - name: Validate changelog entry and extract release notes
+        id: changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "❌ Changelog entry for v$VERSION not found in CHANGELOG.md"
             echo "Please add a changelog entry before creating the tag."
             exit 1
           fi
+          echo "✓ Changelog entry for v$VERSION exists"
 
-      - name: Update package.json version
-        run: |
-          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
-          echo "✓ Updated package.json to version ${{ steps.version.outputs.version }}"
+          BODY=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         run: npm ci
@@ -69,14 +81,14 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Release v${{ steps.version.outputs.version }}
-          draft: false
-          prerelease: false
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release v${{ steps.version.outputs.version }}" \
+            --notes "${{ steps.changelog.outputs.body }}"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
