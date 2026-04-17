@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-04-16
+
+### Added
+- `client.onSessionUpdate(callback)` — registers an async-safe callback invoked after every automatic token refresh, so consumers can re-persist the updated session
+
+### Changed
+- Authentication now uses Garmin's SSO embed login form + device-identity OAuth2 (`diauth.garmin.com`) instead of the deprecated OAuth1 flow via `services.garmin.com`
+- **Breaking:** `PersistedSession` shape changed — `oauth1Token` replaced by `oauth2Token: OAuth2Token` and `diClientId: string`; existing persisted sessions must be discarded and users must re-authenticate
+- **Breaking:** `GarminConnectClient` interface now includes `onSessionUpdate()` — any custom implementations must add this method
+
+### Removed
+- OAuth1 token support and all related types (`OAuth1Token`, `OAuth1AppIdentity`)
+
 ## [1.2.0] - 2026-03-13
 
 ### Added
