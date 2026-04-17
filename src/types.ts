@@ -971,18 +971,9 @@ export interface GarminConnectClient {
   getGolfScorecardDetail(scorecardId: number, locale?: string): Promise<GolfScorecardDetailWithSnapshot>;
   getGolfRounds(page?: number, perPage?: number, locale?: string): Promise<GolfRoundsPage>;
   getSession(): PersistedSession;
-}
-
-// OAuth 1.0 application identity (key/secret)
-export interface OAuth1AppIdentity {
-  key: string;
-  secret: string;
-}
-
-// OAuth 1.0 Token
-export interface OAuth1Token {
-  oauth_token: string;
-  oauth_token_secret: string;
+  // Registers a callback invoked (and awaited) after every automatic token refresh,
+  // so the consumer can re-persist the updated session. Replaces any previous callback.
+  onSessionUpdate(callback: (session: PersistedSession) => void | Promise<void>): void;
 }
 
 // OAuth 2.0 Token (Garmin-specific response format)
@@ -998,12 +989,20 @@ export interface OAuth2Token {
   expires_date?: string;
 }
 
+export const OAuth2TokenSchema = z.object({
+  access_token: z.string(),
+  token_type: z.string(),
+  expires_in: z.number(),
+  refresh_token: z.string(),
+  refresh_token_expires_in: z.number(),
+});
+
 /**
  * Serializable session data for persistence.
- * Store this (e.g. in a file or secure storage) and use `createFromSession()` to restore a client.
+ * Store this (e.g. in a file or secure storage) and use `fromSession()` to restore a client.
  */
 export interface PersistedSession {
-  cookies: string;
-  oauth1Token: OAuth1Token;
+  cookies?: string;
   oauth2Token: OAuth2Token;
+  diClientId: string;
 }
