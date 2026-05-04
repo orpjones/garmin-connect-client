@@ -17,6 +17,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // node-libcurl-ja3's native binding is not safe under vitest's default
+    // worker_threads pool — its V8 HandleScope assumptions break on teardown.
+    // Forks run each test file in a child process, which keeps libcurl happy.
+    pool: 'forks',
     include: ['src/**/*.{test,spec}.{js,ts}'],
     testTimeout: isDebug ? 0 : 30000,
     hookTimeout: isDebug ? 0 : 30000,

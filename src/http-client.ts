@@ -9,23 +9,20 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosR
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
 
-import { AuthContext } from './auth-context';
 import { HttpError, NotAuthenticatedError, OAuthTokenError } from './errors';
-import {
-  USER_AGENT_CONNECTMOBILE,
-  getAppOauthIdentity,
-  createOauthClient,
-  setOauth2TokenExpiresAt,
-} from './oauth-utils';
-import type { OAuth1Token, OAuth2Token, PersistedSession } from './types';
+import { refreshDiToken } from './oauth2-exchanger';
+import type { OAuth2Token, PersistedSession } from './types';
 import { GarminUrls } from './urls';
+
+interface AuthState {
+  oauth2Token: OAuth2Token;
+  diClientId: string;
+}
 
 export class HttpClient {
   private client: AxiosInstance;
-  // OAuth 1.0 token used for refreshing the OAuth 2.0 token
-  private oauth1Token?: OAuth1Token;
-  // OAuth 2.0 bearer token used for authenticated API requests
-  private oauth2Token?: OAuth2Token;
+  // Present only when authenticated; groups the two fields that are always set together
+  private auth?: AuthState;
   private urls: GarminUrls;
   // Cookie jar for session management
   private cookieJar: CookieJar;
@@ -33,29 +30,24 @@ export class HttpClient {
   private isRefreshing = false;
   // Shared promise for concurrent refresh requests to avoid duplicate refresh calls
   private refreshPromise?: Promise<string>;
+  // Called (and awaited) after every automatic token refresh so the consumer can re-persist the session
+  private onSessionUpdate?: (session: PersistedSession) => void | Promise<void>;
 
-  constructor(urls: GarminUrls, authContext?: AuthContext, cookies?: string) {
+  constructor(urls: GarminUrls, session?: PersistedSession) {
     this.urls = urls;
-    // Prefer AuthContext if provided, otherwise use cookies string, otherwise empty
-    if (authContext) {
-      this.cookieJar = HttpClient.createCookieJarFromJson(authContext.getCookies());
-      const tokens = authContext.getOAuthTokens();
-      if (tokens) {
-        this.oauth1Token = tokens.oauth1Token;
-        this.oauth2Token = tokens.oauth2Token;
-      }
-    } else if (cookies) {
-      this.cookieJar = HttpClient.createCookieJarFromJson(cookies);
-    } else {
-      this.cookieJar = new CookieJar();
+    this.cookieJar = session?.cookies ? CookieJar.fromJSON(session.cookies) : new CookieJar();
+    if (session) {
+      this.auth = { oauth2Token: session.oauth2Token, diClientId: session.diClientId };
     }
     this.client = wrapper(axios.create({ jar: this.cookieJar }));
-
     this.setupInterceptors();
   }
 
+  setSessionUpdateCallback(callback: (session: PersistedSession) => void | Promise<void>): void {
+    this.onSessionUpdate = callback;
+  }
+
   // Gets serialized cookie jar data as JSON string for storage/transmission
-  // Returns a JSON string that can be restored with setCookies
   getCookies(): string {
     return JSON.stringify(this.cookieJar.toJSON());
   }
@@ -63,31 +55,15 @@ export class HttpClient {
   // Gets the full session state for persistence (cookies + OAuth tokens)
   // Throws NotAuthenticatedError if the client is not fully authenticated
   getSession(): PersistedSession {
-    if (!this.oauth1Token || !this.oauth2Token) {
+    if (!this.auth) {
       throw new NotAuthenticatedError(
         'Session cannot be persisted: missing OAuth tokens (client not fully authenticated)'
       );
     }
     return {
       cookies: this.getCookies(),
-      oauth1Token: this.oauth1Token,
-      oauth2Token: this.oauth2Token,
+      ...this.auth,
     };
-  }
-
-  // Sets cookies from a JSON string (used during authentication flow)
-  // This allows restoring cookies from a previous session
-  setCookies(cookies: string): void {
-    this.cookieJar = HttpClient.createCookieJarFromJson(cookies);
-    // Recreate the axios client with the new cookie jar
-    this.client = wrapper(axios.create({ jar: this.cookieJar }));
-    // Re-setup interceptors on the new client instance
-    this.setupInterceptors();
-  }
-
-  // Helper to create a CookieJar from JSON string
-  private static createCookieJarFromJson(json: string): CookieJar {
-    return CookieJar.fromJSON(json);
   }
 
   // Sets up request and response interceptors
@@ -106,7 +82,7 @@ export class HttpClient {
           const data = error.response?.data;
 
           // Only attempt token refresh if we have tokens (authenticated API request)
-          if (status === 401 && originalRequest && !originalRequest._retry && this.oauth2Token && this.oauth1Token) {
+          if (status === 401 && originalRequest && !originalRequest._retry && this.auth) {
             originalRequest._retry = true;
             const newToken = await this.refreshToken();
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -139,66 +115,33 @@ export class HttpClient {
     // Request interceptor: automatically adds Bearer token to all requests
     // Ensures all API calls are authenticated without manual token management
     this.client.interceptors.request.use(async config => {
-      if (this.oauth2Token) {
-        config.headers.Authorization = `Bearer ${this.oauth2Token.access_token}`;
+      if (this.auth) {
+        config.headers.Authorization = `Bearer ${this.auth.oauth2Token.access_token}`;
       }
       return config;
     });
   }
 
-  // Exchanges an OAuth 1.0 token for an OAuth 2.0 bearer token
+  // Refreshes the OAuth2 token via the device-identity endpoint using the stored client ID.
   //
-  // This is used internally for token refresh when tokens expire.
-  // Returns OAuth 2.0 bearer token with expiration metadata
-  private async exchange(oauth1Token: OAuth1Token): Promise<OAuth2Token> {
-    const appOauthIdentity = getAppOauthIdentity();
-    const oauth = createOauthClient(appOauthIdentity);
-    const token = {
-      key: oauth1Token.oauth_token,
-      secret: oauth1Token.oauth_token_secret,
-    };
-
-    const baseUrl = this.urls.OAUTH_EXCHANGE_BASE();
-    const requestData = {
-      url: baseUrl,
-      method: 'POST',
-    };
-
-    const step5AuthData = oauth.authorize(requestData, token);
-    // Convert Authorization object to plain object for URL building
-    const oauthParameters = { ...step5AuthData } as Record<string, unknown>;
-    const url = this.urls.OAUTH_EXCHANGE(oauthParameters);
-    const response = await this.post<OAuth2Token>(url, undefined, {
-      headers: {
-        'User-Agent': USER_AGENT_CONNECTMOBILE,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-    return setOauth2TokenExpiresAt(response);
-  }
-
-  // Refreshes the OAuth 2.0 token using the existing OAuth 1.0 token
-  //
-  // This method is called automatically by the response interceptor when
-  // a 401 error is encountered. Uses promise sharing to prevent concurrent
-  // refresh attempts - if a refresh is already in progress, all requests
-  // wait for the same promise to avoid duplicate refresh API calls.
-  // Throws OAuthTokenError if no OAuth 1.0 token is available for refresh
+  // Uses promise sharing to prevent concurrent refresh attempts — if a refresh
+  // is already in progress, all waiters receive the same promise.
   private async refreshToken(): Promise<string> {
-    if (!this.oauth1Token) {
-      throw new OAuthTokenError('No OAuth1 token available for refresh');
+    if (!this.auth) {
+      throw new OAuthTokenError('No OAuth2 token or device-identity client ID available for refresh');
     }
 
     if (this.isRefreshing && this.refreshPromise) {
       return this.refreshPromise;
     }
 
-    const oauth1Token = this.oauth1Token;
+    const { oauth2Token, diClientId } = this.auth;
     this.isRefreshing = true;
     this.refreshPromise = (async () => {
       try {
-        const newToken = await this.exchange(oauth1Token);
-        this.oauth2Token = newToken;
+        const newToken = await refreshDiToken(this.urls, oauth2Token.refresh_token, diClientId);
+        this.auth = { oauth2Token: newToken, diClientId };
+        await this.onSessionUpdate?.(this.getSession());
         return newToken.access_token;
       } finally {
         this.isRefreshing = false;

@@ -1,87 +1,93 @@
 import { DateTime } from 'luxon';
 import { stringify } from 'qs';
 
-// Garmin Connect URL constants and construction methods
+// Garmin Connect URL constants and construction methods.
+//
+// The SSO embed login flow intentionally omits `clientId` from the signin
+// endpoints (see docs/authentication.md) to bypass per-client Cloudflare rate limiting.
 export class GarminUrls {
   readonly GARMIN_SSO_ORIGIN = 'https://sso.garmin.com';
-  readonly OAUTH_URL = 'https://connectapi.garmin.com/oauth-service/oauth';
-  // Mobile API endpoints
-  readonly MOBILE_API_LOGIN = 'https://sso.garmin.com/mobile/api/login';
-  readonly MOBILE_API_MFA_VERIFY = 'https://sso.garmin.com/mobile/api/mfa/verifyCode';
-  readonly MOBILE_SERVICE = 'https://mobile.integration.garmin.com/gcm/ios';
-  // Connect Api endpoints
+  readonly SSO_BASE = 'https://sso.garmin.com/sso';
+  readonly CONNECT_WEB_SERVICE = 'https://connect.garmin.com/modern';
   readonly CONNECT_API = 'https://connectapi.garmin.com';
-  // Golf API endpoints
   readonly GOLF_API_BASE = 'https://golf.garmin.com/gcs-golfcommunity/api/v2';
 
-  // Client ID for mobile API authentication
-  readonly CLIENT_ID_MOBILE = 'GCM_IOS_DARK';
-
-  // Constructs the sign-in page URL with query parameters
-  SIGN_IN_PAGE(clientId: string = this.CLIENT_ID_MOBILE): string {
-    const parameters = {
-      clientId,
-      service: this.MOBILE_SERVICE,
+  // Common query parameters for the SSO embed login flow. These values are
+  // reused for both the initial signin page and the MFA verification step so
+  // Garmin treats both requests as part of the same embedded login widget.
+  // It mirrors what the embedded login form sends: source, redirect targets,
+  // webhost, and gauth host. `clientId` is intentionally absent — see class doc.
+  //
+  // Important: Garmin binds each service ticket to the exact URL used during
+  // login. The ticket is only valid for that URL, so the same `embedUrl`
+  // value must be used in both the SSO request parameters and the later token
+  // exchange `service_url` parameter. If the URL changes, Garmin treats the
+  // ticket as belonging to a different service and rejects it.
+  private ssoWidgetParameters(): Record<string, string> {
+    const embedUrl = `${this.SSO_BASE}/embed`;
+    return {
+      service: embedUrl,
+      webhost: this.CONNECT_WEB_SERVICE,
+      source: embedUrl,
+      redirectAfterAccountLoginUrl: embedUrl,
+      redirectAfterAccountCreationUrl: embedUrl,
+      gauthHost: this.SSO_BASE,
+      locale: 'en_US',
+      id: 'gauth-widget',
+      cssUrl: 'https://connect.garmin.com/gauth-custom-v3.2-min.css',
+      privacyStatementUrl: 'https://www.garmin.com/en-US/privacy/connect/',
+      rememberMeShown: 'true',
+      rememberMeChecked: 'false',
+      createAccountShown: 'true',
+      openCreateAccount: 'false',
+      displayNameShown: 'false',
+      consumeServiceTicket: 'false',
+      initialFocus: 'true',
+      embedWidget: 'true',
+      generateExtraServiceTicket: 'true',
+      generateTwoExtraServiceTickets: 'true',
+      generateNoServiceTicket: 'false',
+      globalOptInShown: 'true',
+      globalOptInChecked: 'false',
+      mobile: 'false',
+      connectLegalTerms: 'true',
+      showTermsOfUse: 'false',
+      showPrivacyPolicy: 'false',
+      showConnectLegalAge: 'false',
+      locationPromptShown: 'true',
+      showPassword: 'true',
+      useCustomHeader: 'false',
+      mfaRequired: 'false',
+      performMFACheck: 'false',
+      rememberMyBrowserShown: 'false',
+      rememberMyBrowserChecked: 'false',
     };
-    return `https://sso.garmin.com/mobile/sso/en-US/sign-in?${stringify(parameters)}`;
   }
 
-  // Constructs the login API URL with query parameters
-  LOGIN_API(clientId: string = this.CLIENT_ID_MOBILE, locale: string = 'en-US'): string {
+  // The /sso/embed endpoint establishes initial session cookies before signin.
+  SSO_EMBED(): string {
     const parameters = {
-      clientId,
-      locale,
-      service: this.MOBILE_SERVICE,
+      id: 'gauth-widget',
+      embedWidget: 'true',
+      gauthHost: this.SSO_BASE,
     };
-    return `${this.MOBILE_API_LOGIN}?${stringify(parameters)}`;
+    return `${this.SSO_BASE}/embed?${stringify(parameters)}`;
   }
 
-  // Constructs the MFA verify API URL with query parameters
-  MFA_VERIFY_API(clientId: string = this.CLIENT_ID_MOBILE, locale: string = 'en-US'): string {
-    const parameters = {
-      clientId,
-      locale,
-      service: this.MOBILE_SERVICE,
-    };
-    return `${this.MOBILE_API_MFA_VERIFY}?${stringify(parameters)}`;
+  // The /sso/signin GET returns the login HTML used to scrape the CSRF token.
+  // The POST submits credentials.
+  SSO_SIGNIN(): string {
+    return `${this.SSO_BASE}/signin?${stringify(this.ssoWidgetParameters())}`;
   }
 
-  // Constructs the referer URL for sign-in page requests
-  SIGN_IN_REFERER(clientId: string = this.CLIENT_ID_MOBILE): string {
-    return `https://sso.garmin.com/mobile/sso/en-US/sign-in?clientId=${clientId}&service=${encodeURIComponent(this.MOBILE_SERVICE)}`;
+  // POST endpoint for submitting MFA codes during the SSO embed login flow.
+  SSO_MFA_VERIFY(): string {
+    return `${this.SSO_BASE}/verifyMFA/loginEnterMfaCode?${stringify(this.ssoWidgetParameters())}`;
   }
 
-  // Constructs the referer URL for MFA page requests
-  MFA_REFERER(clientId: string = this.CLIENT_ID_MOBILE): string {
-    return `https://sso.garmin.com/mobile/sso/en-US/mfa?clientId=${clientId}&service=${encodeURIComponent(this.MOBILE_SERVICE)}`;
-  }
-
-  // Returns the base URL for OAuth preauthorized endpoint (without query params)
-  // Used for OAuth signing before building the final URL with query params
-  OAUTH_PREAUTHORIZED_BASE(): string {
-    return `${this.OAUTH_URL}/preauthorized`;
-  }
-
-  // Constructs the OAuth preauthorized URL with query parameters
-  // @param params - Base parameters (ticket, login-url, accepts-mfa-tokens)
-  // @param oauthParams - OAuth signature parameters to merge in
-  OAUTH_PREAUTHORIZED(parameters: Record<string, unknown>, oauthParameters?: Record<string, unknown>): string {
-    const baseUrl = this.OAUTH_PREAUTHORIZED_BASE();
-    const mergedParameters = oauthParameters ? { ...parameters, ...oauthParameters } : parameters;
-    return `${baseUrl}?${stringify(mergedParameters)}`;
-  }
-
-  // Returns the base URL for OAuth exchange endpoint (without query params)
-  // Used for OAuth signing before building the final URL with query params
-  OAUTH_EXCHANGE_BASE(): string {
-    return `${this.OAUTH_URL}/exchange/user/2.0`;
-  }
-
-  // Constructs the OAuth exchange URL with query parameters
-  // @param oauthParams - OAuth signature parameters
-  OAUTH_EXCHANGE(oauthParameters: Record<string, unknown>): string {
-    const baseUrl = this.OAUTH_EXCHANGE_BASE();
-    return `${baseUrl}?${stringify(oauthParameters)}`;
+  // Device-identity OAuth2 token endpoint — used for both initial ticket exchange and refresh.
+  DIAUTH_TOKEN_URL(): string {
+    return 'https://diauth.garmin.com/di-oauth2-service/oauth/token';
   }
 
   // Activity API methods

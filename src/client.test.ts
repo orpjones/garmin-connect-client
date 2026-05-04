@@ -18,10 +18,10 @@ import { DateTime } from 'luxon';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { GarminConnectClientImpl } from './client';
-import { InvalidCredentialsError, MfaCodeInvalidError, NotAuthenticatedError } from './errors';
+import { InvalidCredentialsError, NotAuthenticatedError } from './errors';
 import type { GarminConnectClient } from './types';
 
-import { create, createAuthContext, createFromSession } from './index';
+import { fromSession, login } from './index';
 
 // Environment variables - loaded in beforeAll hook
 let GARMIN_USERNAME: string | undefined;
@@ -117,28 +117,31 @@ function readMfaCodeFromConsole(): Promise<string> {
 
 async function getAuthenticatedMfaClient(): Promise<GarminConnectClient> {
   if (!mfaClient) {
-    const authContext = await createAuthContext({
+    const result = await login({
       username: GARMIN_MFA_USERNAME!,
       password: GARMIN_MFA_PASSWORD!,
     });
 
-    if (!authContext.mfaRequired) {
+    if (!result.mfaRequired) {
       throw new Error('MFA is not required for these credentials; cannot run MFA tests');
     }
 
     const mfaCode = await readMfaCodeFromConsole();
-    mfaClient = await create(authContext, mfaCode);
+    mfaClient = await login(result, mfaCode);
   }
   return mfaClient;
 }
 
 async function getAuthenticatedBasicClient(): Promise<GarminConnectClient> {
   if (!basicClient) {
-    const authContext = await createAuthContext({
+    const result = await login({
       username: GARMIN_USERNAME!,
       password: GARMIN_PASSWORD!,
     });
-    basicClient = await create(authContext);
+    if (result.mfaRequired) {
+      throw new Error('MFA should not be required for basic credentials');
+    }
+    basicClient = result.client;
   }
   return basicClient;
 }
@@ -371,16 +374,16 @@ describe('GarminConnectClient', () => {
     });
 
     it('should create and authenticate a client instance', async () => {
-      const authContext = await createAuthContext({
+      const result = await login({
         username: GARMIN_USERNAME!,
         password: GARMIN_PASSWORD!,
       });
-      await create(authContext);
+      expect(result.mfaRequired).toBe(false);
     });
 
     it('should throw an error for invalid password', async () => {
       await expect(
-        createAuthContext({
+        login({
           username: GARMIN_USERNAME!,
           password: 'invalid-password',
         })
@@ -389,7 +392,7 @@ describe('GarminConnectClient', () => {
 
     it('should throw an error for invalid username', async () => {
       await expect(
-        createAuthContext({
+        login({
           username: 'invalid-username@example.com',
           password: 'some-password',
         })
@@ -399,7 +402,7 @@ describe('GarminConnectClient', () => {
     it('should throw an error for invalid password (generic test)', async () => {
       // This test doesn't require real credentials - it tests error handling
       await expect(
-        createAuthContext({
+        login({
           username: 'test@example.com',
           password: 'invalid-password',
         })
@@ -416,10 +419,10 @@ describe('GarminConnectClient', () => {
         it('should persist and restore session', async () => {
           const session = basicClient!.getSession();
           expect(session.cookies).toBeDefined();
-          expect(session.oauth1Token).toBeDefined();
+          expect(session.diClientId).toBeDefined();
           expect(session.oauth2Token).toBeDefined();
 
-          const restoredClient = createFromSession(session);
+          const restoredClient = fromSession(session);
           const activities = await restoredClient.getActivities();
           expect(activities).toBeDefined();
           expect(Array.isArray(activities)).toBe(true);
@@ -492,17 +495,6 @@ describe('GarminConnectClient', () => {
       await getAuthenticatedMfaClient();
       expect(mfaClient).toBeDefined();
     }); // 10 minute timeout to allow for MFA input
-
-    it('should throw MfaCodeInvalidError when invalid MFA code is provided', async () => {
-      const authContext = await createAuthContext({
-        username: GARMIN_MFA_USERNAME!,
-        password: GARMIN_MFA_PASSWORD!,
-      });
-
-      if (authContext.mfaRequired) {
-        await expect(create(authContext, '000000')).rejects.toThrow(MfaCodeInvalidError);
-      }
-    });
 
     // Run tests with MFA client
     describe('with authenticated MFA client', () => {
