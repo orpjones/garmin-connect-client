@@ -108,6 +108,15 @@ export class GarminUrls {
     return `${this.GOLF_API_BASE}/scorecard/detail?scorecard-ids=${scorecardId}&skip-course-info=0&skip-stats-info=0&skip-shot-summary-info=1&user-locale=${locale}`;
   }
 
+  // HRV API methods
+  DAILY_HRV(date: DateTime<true>): string {
+    return `${this.CONNECT_API}/hrv-service/hrv/${date.toUTC().toISODate()}`;
+  }
+
+  DAILY_HRV_SUMMARIES(from: DateTime<true>, to: DateTime<true>): string {
+    return `${this.CONNECT_API}/hrv-service/hrv/daily/${from.toUTC().toISODate()}/${to.toUTC().toISODate()}`;
+  }
+
   // Sleep API methods
   DAILY_SLEEP_DATA(date: DateTime<true>, nonSleepBufferMinutes = 60): string {
     return `${this.CONNECT_API}/sleep-service/sleep/dailySleepData?date=${date.toUTC().toISODate()}&nonSleepBufferMinutes=${nonSleepBufferMinutes}`;

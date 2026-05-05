@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { HrvClientImpl } from './hrv/client';
 import { HttpClient } from './http-client';
 import { SleepClientImpl } from './sleep/client';
 import type {
@@ -11,6 +12,7 @@ import type {
   GolfRoundsPage,
   GarminConnectSleepClient,
   PersistedSession,
+  GarminConnectHrvClient,
 } from './types';
 import { ActivitySchema, GolfActivitiesPageSchema, GolfScorecardDetailsResponseSchema } from './types';
 import { GarminUrls } from './urls';
@@ -27,10 +29,16 @@ export class GarminConnectClientImpl implements GarminConnectClient {
     return this.sleepClient;
   }
 
+  private hrvClient: GarminConnectHrvClient;
+  public get hrv() {
+    return this.hrvClient;
+  }
+
   private constructor(httpClient: HttpClient, urls: GarminUrls) {
     this.httpClient = httpClient;
     this.urls = urls;
 
+    this.hrvClient = new HrvClientImpl(this.httpClient, this.urls);
     this.sleepClient = new SleepClientImpl(this.httpClient, this.urls);
   }
 

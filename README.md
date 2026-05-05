@@ -209,6 +209,33 @@ const rounds = await Promise.all(
 );
 ```
 
+### HRV
+
+The HRV client can be used to fetch heart rate variability data.
+
+#### Get daily HRV
+
+```typescript
+const dailyHrv = await client.hrv.getDailyHrv(DateTime.now());
+
+console.log(`HRV status: ${dailyHrv.hrvSummary.status}`);
+console.log(`Last night average HRV: ${dailyHrv.hrvSummary.lastNightAvg}`);
+console.log(`Weekly average HRV: ${dailyHrv.hrvSummary.weeklyAvg}`);
+```
+
+#### Get HRV summaries over a date range
+
+```typescript
+const hrvSummaries = await client.hrv.getDailyHrvSummaries(
+  DateTime.now().minus({ days: 7 }),
+  DateTime.now()
+);
+
+for (const summary of hrvSummaries.hrvSummaries) {
+  console.log(`${summary.calendarDate}: status=${summary.status}, lastNightAvg=${summary.lastNightAvg}`);
+}
+```
+
 ### Sleep
 
 The sleep client can be used to fetch various sleep-related data points.
