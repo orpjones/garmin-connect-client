@@ -4,7 +4,7 @@ import { HrvStatus } from './hrv-status';
 import { HrvSummaryFeedbackPhrase } from './hrv-summary-feedback-phrase';
 
 export const HrvSummarySchema = z.object({
-  calendarDate: z.string(),
+  calendarDate: z.string(), // ISO 8601 format
   weeklyAvg: z.number().nullable(),
   lastNightAvg: z.number().nullable(),
   lastNight5MinHigh: z.number().nullable(),
@@ -18,5 +18,5 @@ export const HrvSummarySchema = z.object({
     .nullable(),
   status: z.nativeEnum(HrvStatus),
   feedbackPhrase: z.nativeEnum(HrvSummaryFeedbackPhrase),
-  createTimeStamp: z.string(),
+  createTimeStamp: z.string(), // ISO 8601 format
 });

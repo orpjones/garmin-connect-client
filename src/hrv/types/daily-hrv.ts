@@ -7,14 +7,14 @@ export const DailyHrvSchema = z.object({
   userProfilePk: z.number(),
   hrvSummary: HrvSummarySchema,
   hrvReadings: z.array(HrvReadingSchema),
-  startTimestampGMT: z.string(),
-  endTimestampGMT: z.string(),
-  startTimestampLocal: z.string(),
-  endTimestampLocal: z.string(),
-  sleepStartTimestampGMT: z.string().nullable(),
-  sleepEndTimestampGMT: z.string().nullable(),
-  sleepStartTimestampLocal: z.string().nullable(),
-  sleepEndTimestampLocal: z.string().nullable(),
+  startTimestampGMT: z.string(), // ISO 8601 format
+  endTimestampGMT: z.string(), // ISO 8601 format
+  startTimestampLocal: z.string(), // ISO 8601 format
+  endTimestampLocal: z.string(), // ISO 8601 format
+  sleepStartTimestampGMT: z.string().nullable(), // ISO 8601 format
+  sleepEndTimestampGMT: z.string().nullable(), // ISO 8601 format
+  sleepStartTimestampLocal: z.string().nullable(), // ISO 8601 format
+  sleepEndTimestampLocal: z.string().nullable(), // ISO 8601 format
 });
 
 export type DailyHrv = z.infer<typeof DailyHrvSchema>;
