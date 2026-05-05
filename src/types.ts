@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { z } from 'zod';
 
 import { DailyHrv } from './hrv/types/daily-hrv';
+import { DailyHrvSummaries } from './hrv/types/daily-hrv-summaries';
 import { DailySleepData } from './sleep/types/daily-sleep-data';
 import { SleepStats } from './sleep/types/sleep-stats';
 
@@ -961,6 +962,7 @@ export interface GarminConnectClientConfig {
 
 export interface GarminConnectHrvClient {
   getDailyHrv(date: DateTime<true>): Promise<DailyHrv>;
+  getDailyHrvSummaries(from: DateTime<true>, to: DateTime<true>): Promise<DailyHrvSummaries>;
 }
 
 export interface GarminConnectSleepClient {
