@@ -8,10 +8,11 @@
 //    GARMIN_MFA_PASSWORD=mfa-password
 //
 // NOTE: The MFA test requires console input and is automatically skipped when CI=true
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import path from 'node:path';
+import * as readline from 'node:readline';
 
 import { config } from 'dotenv';
 import { DateTime } from 'luxon';
@@ -30,6 +31,7 @@ let GARMIN_MFA_USERNAME: string | undefined;
 let GARMIN_MFA_PASSWORD: string | undefined;
 // Check CI status immediately (before describe blocks are registered)
 const IS_CI: boolean = process.env.CI === 'true' || process.env.CI === '1';
+
 const shouldRunInteractiveMFATests: boolean = !IS_CI; // Interactive MFA tests require user input and should be skipped in CI
 
 // Shared authenticated clients - created by first test, reused by subsequent tests
@@ -50,29 +52,77 @@ function requireMfaCredentials(): void {
   }
 }
 
+function isWsl(): boolean {
+  return (
+    process.platform === 'linux' &&
+    (!!process.env.WSL_DISTRO_NAME ||
+      (fs.existsSync('/proc/version') && fs.readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft')))
+  );
+}
+
+function isWslInteropEnabled(): boolean {
+  return fs.existsSync('/proc/sys/fs/binfmt_misc/WSLInterop');
+}
+
+function readMfaCodeFromTerminal(): Promise<string> {
+  return new Promise(resolve => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question('Enter your MFA code and press Enter: ', answer => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
 // Helper to read MFA code by opening a temp file in the default editor
 // User edits the file, saves it, and we read the code
 function readMfaCodeFromConsole(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const temporaryFile = path.join(os.tmpdir(), `garmin-mfa-${Date.now()}-${Math.random().toString(36).slice(7)}.txt`);
+    // In WSL, use the Windows temp directory so the file is accessible to Windows apps
+    let temporaryFile: string;
+    let windowsPath: string | undefined;
+    if (isWsl() && isWslInteropEnabled()) {
+      const winTemporary = execSync('/mnt/c/Windows/System32/cmd.exe /c echo %TEMP%').toString().trim();
+      const wslTemporary = execSync(`wslpath '${winTemporary}'`).toString().trim();
+      const filename = `garmin-mfa-${Date.now()}-${Math.random().toString(36).slice(7)}.txt`;
+      temporaryFile = path.join(wslTemporary, filename);
+      windowsPath = path.join(winTemporary, filename);
+    } else {
+      temporaryFile = path.join(os.tmpdir(), `garmin-mfa-${Date.now()}-${Math.random().toString(36).slice(7)}.txt`);
+    }
     fs.writeFileSync(temporaryFile, 'Enter your MFA code below, then save and close this file:\n\n', 'utf8');
 
     const initialMtime = fs.statSync(temporaryFile).mtimeMs;
     const maxWaitTime = 600_000; // 10 minutes
     const startTime = Date.now();
 
-    // Platform-specific editor commands
-    const editorCommand =
-      process.platform === 'darwin'
-        ? { command: 'open', args: ['-t', temporaryFile] }
-        : process.platform === 'win32'
-          ? { command: 'cmd', args: ['/c', 'start', 'notepad', temporaryFile] }
-          : { command: 'xdg-open', args: [temporaryFile] };
-
-    spawn(editorCommand.command, editorCommand.args, {
-      detached: true,
-      stdio: 'ignore',
-    }).on('error', (error: Error) => reject(new Error(`Failed to open editor: ${error.message}`)));
+    // Platform-specific editor launch
+    if (process.platform === 'darwin') {
+      spawn('open', ['-t', temporaryFile], { detached: true, stdio: 'ignore' }).on('error', (error: Error) =>
+        reject(new Error(`Failed to open editor: ${error.message}`))
+      );
+    } else if (process.platform === 'win32') {
+      spawn('cmd', ['/c', 'start', 'notepad', temporaryFile], { detached: true, stdio: 'ignore' }).on(
+        'error',
+        (error: Error) => reject(new Error(`Failed to open editor: ${error.message}`))
+      );
+    } else if (isWsl() && isWslInteropEnabled()) {
+      try {
+        execSync(`/mnt/c/Windows/System32/cmd.exe /c start "" "${windowsPath}"`, { stdio: 'pipe' });
+      } catch (error) {
+        reject(new Error(`Failed to open editor: ${error instanceof Error ? error.message : String(error)}`));
+        return;
+      }
+    } else if (isWsl()) {
+      // WSL interop disabled — fall back to terminal prompt
+      console.log(`\nWSL interop is disabled. Cannot open a GUI editor.`);
+      readMfaCodeFromTerminal().then(resolve).catch(reject);
+      return;
+    } else {
+      spawn('xdg-open', [temporaryFile], { detached: true, stdio: 'ignore' }).on('error', (error: Error) =>
+        reject(new Error(`Failed to open editor: ${error.message}`))
+      );
+    }
 
     // Cleanup helper
     const cleanup = () => {
@@ -491,7 +541,7 @@ describe('GarminConnectClient', () => {
       requireMfaCredentials();
     });
 
-    it('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
+    it.only('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
       await getAuthenticatedMfaClient();
       expect(mfaClient).toBeDefined();
     }); // 10 minute timeout to allow for MFA input
