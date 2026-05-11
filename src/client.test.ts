@@ -83,8 +83,8 @@ function readMfaCodeFromConsole(): Promise<string> {
     const onError = (error: Error) => reject(new Error(`Failed to open editor: ${error.message}`));
 
     // Platform-specific editor launch
-    if (isWsl) {
-      execSync(`/mnt/c/Windows/System32/cmd.exe /c start "" "${wslWinTemporaryFile}"`, { stdio: 'pipe' });
+    if (isWsl && wslWinTemporaryFile) {
+      spawn('/mnt/c/Windows/System32/cmd.exe', ['/c', 'start', '', wslWinTemporaryFile], { detached: true, stdio: 'ignore' }).on('error', onError);
     } else if (process.platform === 'darwin') {
       spawn('open', ['-t', temporaryFile], { detached: true, stdio: 'ignore' }).on('error', onError);
     } else if (process.platform === 'win32') {
