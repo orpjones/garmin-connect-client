@@ -80,18 +80,21 @@ function readMfaCodeFromConsole(): Promise<string> {
     const initialMtime = fs.statSync(temporaryFile).mtimeMs;
     const maxWaitTime = 600_000; // 10 minutes
     const startTime = Date.now();
-    const onError = (error: Error) => reject(new Error(`Failed to open editor: ${error.message}`));
 
     // Platform-specific editor launch
-    if (isWsl && wslWinTemporaryFile) {
-      spawn('/mnt/c/Windows/System32/cmd.exe', ['/c', 'start', '', wslWinTemporaryFile], { detached: true, stdio: 'ignore' }).on('error', onError);
-    } else if (process.platform === 'darwin') {
-      spawn('open', ['-t', temporaryFile], { detached: true, stdio: 'ignore' }).on('error', onError);
-    } else if (process.platform === 'win32') {
-      spawn('cmd', ['/c', 'start', 'notepad', temporaryFile], { detached: true, stdio: 'ignore' }).on('error', onError);
-    } else {
-      spawn('xdg-open', [temporaryFile], { detached: true, stdio: 'ignore' }).on('error', onError);
-    }
+    const [cmd, arguments_] =
+      isWsl && wslWinTemporaryFile
+        ? ['/mnt/c/Windows/System32/cmd.exe', ['/c', 'start', '', wslWinTemporaryFile]]
+        : process.platform === 'darwin'
+          ? ['open', ['-t', temporaryFile]]
+          : process.platform === 'win32'
+            ? ['cmd', ['/c', 'start', 'notepad', temporaryFile]]
+            : ['xdg-open', [temporaryFile]];
+
+    spawn(cmd, arguments_, {
+      detached: true,
+      stdio: 'ignore'
+    }).on('error', (error) => reject(new Error(`Failed to open editor: ${error.message}`)));
 
     // Cleanup helper
     const cleanup = () => {
