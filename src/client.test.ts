@@ -8,7 +8,7 @@
 //    GARMIN_MFA_PASSWORD=mfa-password
 //
 // NOTE: The MFA test requires console input and is automatically skipped when CI=true
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -50,29 +50,51 @@ function requireMfaCredentials(): void {
   }
 }
 
+function getWsl(): boolean {
+  return (
+    process.platform === 'linux' &&
+    (!!process.env.WSL_DISTRO_NAME ||
+      (fs.existsSync('/proc/version') && fs.readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft')))
+  );
+}
+
 // Helper to read MFA code by opening a temp file in the default editor
 // User edits the file, saves it, and we read the code
 function readMfaCodeFromConsole(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const temporaryFile = path.join(os.tmpdir(), `garmin-mfa-${Date.now()}-${Math.random().toString(36).slice(7)}.txt`);
+    const filename = `garmin-mfa-${Date.now()}-${Math.random().toString(36).slice(7)}.txt`;
+    let temporaryFile: string;
+    let wslWinTemporaryFile: string | undefined;
+
+    const isWsl = getWsl();
+    if (isWsl) {
+      const winTemporary = execSync('/mnt/c/Windows/System32/cmd.exe /c echo %TEMP%').toString().trim();
+      temporaryFile = path.join(execSync(`wslpath '${winTemporary}'`).toString().trim(), filename);
+      wslWinTemporaryFile = path.join(winTemporary, filename);
+    } else {
+      temporaryFile = path.join(os.tmpdir(), filename);
+    }
+
     fs.writeFileSync(temporaryFile, 'Enter your MFA code below, then save and close this file:\n\n', 'utf8');
 
     const initialMtime = fs.statSync(temporaryFile).mtimeMs;
     const maxWaitTime = 600_000; // 10 minutes
     const startTime = Date.now();
 
-    // Platform-specific editor commands
-    const editorCommand =
-      process.platform === 'darwin'
-        ? { command: 'open', args: ['-t', temporaryFile] }
-        : process.platform === 'win32'
-          ? { command: 'cmd', args: ['/c', 'start', 'notepad', temporaryFile] }
-          : { command: 'xdg-open', args: [temporaryFile] };
+    // Platform-specific editor launch
+    const [command, parameters] =
+      isWsl && wslWinTemporaryFile
+        ? ['/mnt/c/Windows/System32/cmd.exe', ['/c', 'start', '', wslWinTemporaryFile]]
+        : process.platform === 'darwin'
+          ? ['open', ['-t', temporaryFile]]
+          : process.platform === 'win32'
+            ? ['cmd', ['/c', 'start', 'notepad', temporaryFile]]
+            : ['xdg-open', [temporaryFile]];
 
-    spawn(editorCommand.command, editorCommand.args, {
+    spawn(command, parameters, {
       detached: true,
       stdio: 'ignore',
-    }).on('error', (error: Error) => reject(new Error(`Failed to open editor: ${error.message}`)));
+    }).on('error', error => reject(new Error(`Failed to open editor: ${error.message}`)));
 
     // Cleanup helper
     const cleanup = () => {
