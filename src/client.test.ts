@@ -82,7 +82,7 @@ function readMfaCodeFromConsole(): Promise<string> {
     const startTime = Date.now();
 
     // Platform-specific editor launch
-    const [cmd, arguments_] =
+    const [command, parameters] =
       isWsl && wslWinTemporaryFile
         ? ['/mnt/c/Windows/System32/cmd.exe', ['/c', 'start', '', wslWinTemporaryFile]]
         : process.platform === 'darwin'
@@ -91,10 +91,10 @@ function readMfaCodeFromConsole(): Promise<string> {
             ? ['cmd', ['/c', 'start', 'notepad', temporaryFile]]
             : ['xdg-open', [temporaryFile]];
 
-    spawn(cmd, arguments_, {
+    spawn(command, parameters, {
       detached: true,
-      stdio: 'ignore'
-    }).on('error', (error) => reject(new Error(`Failed to open editor: ${error.message}`)));
+      stdio: 'ignore',
+    }).on('error', error => reject(new Error(`Failed to open editor: ${error.message}`)));
 
     // Cleanup helper
     const cleanup = () => {
@@ -513,7 +513,7 @@ describe('GarminConnectClient', () => {
       requireMfaCredentials();
     });
 
-    it.only('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
+    it('should successfully authenticate with MFA and create shared client (skipped in CI)', async () => {
       await getAuthenticatedMfaClient();
       expect(mfaClient).toBeDefined();
     }); // 10 minute timeout to allow for MFA input
